@@ -1289,7 +1289,14 @@ document.querySelector(".register-form")?.addEventListener("submit", function(ev
         return;
     }
 
-    cuentas.push({ email, username, password, displayName, puntos: 0 });
+    cuentas.push({
+        email,
+        username,
+        password,
+        displayName,
+        puntos: 2000,
+        bonoInicioSesionOtorgado: false
+    });
     guardarCuentas(cuentas);
     alert("Cuenta creada. Ya puedes iniciar sesión.");
     window.location.href = "login.html";
@@ -1325,9 +1332,26 @@ document.querySelector(".login-form")?.addEventListener("submit", function(event
         return;
     }
 
+    let bonoInicioSesion = cuenta.bonoInicioSesionOtorgado !== true;
+    let saldo = puntosCuenta(cuenta);
+    if (bonoInicioSesion) {
+        if (saldo > Number.MAX_SAFE_INTEGER - 1000) {
+            alert("No se pudo aplicar el bono de inicio de sesión porque el saldo superaría el límite permitido.");
+            return;
+        }
+        cuenta.puntos = saldo + 1000;
+        cuenta.bonoInicioSesionOtorgado = true;
+        guardarCuentas(cuentas);
+        saldo = cuenta.puntos;
+    }
+
     sessionStorage.setItem("chichacookSession", cuenta.username);
-    alert("¡Bienvenido/a, " + cuenta.displayName + "! Tienes " +
-        puntosCuenta(cuenta).toLocaleString("es-CL") + " puntos.");
+    alert(bonoInicioSesion
+        ? "¡Bienvenido/a, " + cuenta.displayName +
+            "! Recibiste 1.000 puntos por iniciar sesión. Tu saldo es de " +
+            saldo.toLocaleString("es-CL") + " puntos."
+        : "¡Bienvenido/a, " + cuenta.displayName + "! Tienes " +
+            saldo.toLocaleString("es-CL") + " puntos.");
     window.location.href = "index.html";
 });
 
