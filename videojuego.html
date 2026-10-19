@@ -35,7 +35,11 @@
 
 <main class="game-page">
     <section class="game-welcome">
-        <img src="imagenes/ChichaCook.png" alt="" class="game-logo">
+        <div class="blackjack-welcome-card" aria-hidden="true">
+            <span>A</span>
+            <strong>♥</strong>
+            <span>A</span>
+        </div>
         <div>
             <p class="game-eyebrow">BLACKJACK CHICHACOOK</p>
             <h1>¿Llegarás a 21?</h1>
@@ -89,40 +93,84 @@
         </div>
     </section>
 
+    <section class="game-welcome roulette-welcome" aria-labelledby="roulette-welcome-title">
+        <div class="roulette-welcome-icon" aria-hidden="true">🎡</div>
+        <div>
+            <p class="game-eyebrow">RULETA AMERICANA</p>
+            <h1 id="roulette-welcome-title">¿Dónde caerá la bola?</h1>
+            <p>Elige un número, color o tipo de apuesta. Al añadir tu apuesta comienza una cuenta de 45 segundos; después, la bola gira y descubre el resultado.</p>
+        </div>
+    </section>
+
     <section class="roulette-section" aria-labelledby="roulette-title">
         <div class="roulette-heading">
             <div>
                 <p class="game-eyebrow">RULETA AMERICANA</p>
                 <h2 id="roulette-title">Prueba tu suerte</h2>
-                <p>Elige un número o un color y apuesta tus puntos.</p>
+                <p>Apuesta a números, colores, paridad, mitades, docenas o columnas.</p>
             </div>
             <p class="roulette-balance">Mis puntos <strong id="roulette-points">0</strong></p>
         </div>
 
         <div class="roulette-layout">
             <div class="roulette-table-wrap">
-                <div id="roulette-board" class="roulette-board" aria-label="Casillas de la ruleta americana"></div>
-                <div class="roulette-bet-options" role="group" aria-label="Tipo de apuesta">
-                    <button class="roulette-bet-choice is-selected" type="button" data-bet-type="number" aria-pressed="true">Número</button>
-                    <button class="roulette-bet-choice roulette-red" type="button" data-bet-type="red" aria-pressed="false">Rojo</button>
-                    <button class="roulette-bet-choice roulette-black" type="button" data-bet-type="black" aria-pressed="false">Negro</button>
+                <div class="roulette-felt">
+                    <div id="roulette-board" class="roulette-board" aria-label="Casillas de la ruleta americana"></div>
+                    <div class="roulette-bet-options" role="group" aria-label="Apuestas externas">
+                        <button class="roulette-bet-choice roulette-column-bet" type="button" data-bet-type="column-3" aria-label="Apostar a la columna 3" aria-pressed="false">2:1</button>
+                        <button class="roulette-bet-choice roulette-column-bet" type="button" data-bet-type="column-2" aria-label="Apostar a la columna 2" aria-pressed="false">2:1</button>
+                        <button class="roulette-bet-choice roulette-column-bet" type="button" data-bet-type="column-1" aria-label="Apostar a la columna 1" aria-pressed="false">2:1</button>
+                        <button class="roulette-bet-choice roulette-dozen-bet" type="button" data-bet-type="dozen-1" aria-pressed="false">1ª docena</button>
+                        <button class="roulette-bet-choice roulette-dozen-bet" type="button" data-bet-type="dozen-2" aria-pressed="false">2ª docena</button>
+                        <button class="roulette-bet-choice roulette-dozen-bet" type="button" data-bet-type="dozen-3" aria-pressed="false">3ª docena</button>
+                        <button class="roulette-bet-choice roulette-outside-bet" type="button" data-bet-type="low" aria-pressed="false">1-18</button>
+                        <button class="roulette-bet-choice roulette-outside-bet" type="button" data-bet-type="even" aria-pressed="false">PAR</button>
+                        <button class="roulette-bet-choice roulette-outside-bet roulette-red" type="button" data-bet-type="red" aria-pressed="false">ROJO</button>
+                        <button class="roulette-bet-choice roulette-outside-bet roulette-black" type="button" data-bet-type="black" aria-pressed="false">NEGRO</button>
+                        <button class="roulette-bet-choice roulette-outside-bet" type="button" data-bet-type="odd" aria-pressed="false">IMPAR</button>
+                        <button class="roulette-bet-choice roulette-outside-bet" type="button" data-bet-type="high" aria-pressed="false">19-36</button>
+                    </div>
                 </div>
-                <p id="roulette-selection" class="roulette-selection" aria-live="polite">Número elegido: 0</p>
+                <p id="roulette-selection" class="roulette-selection" aria-live="polite">Selecciona una posición, define el importe y añádela.</p>
+                <div class="roulette-pending">
+                    <div class="roulette-pending-heading">
+                        <strong id="roulette-bet-count">Apuestas: 0</strong>
+                        <button id="roulette-clear-bets" class="roulette-clear-bets" type="button" disabled>Vaciar</button>
+                    </div>
+                    <ul id="roulette-pending-list" class="roulette-pending-list" aria-live="polite"></ul>
+                    <p id="roulette-total-bet" class="roulette-total-bet">Total apostado: 0 puntos</p>
+                </div>
             </div>
 
             <div class="roulette-play">
-                <div id="roulette-wheel" class="roulette-wheel" aria-hidden="true">
-                    <div class="roulette-ball-track">
-                        <span class="roulette-ball"></span>
+                <div id="roulette-wheel" class="roulette-wheel" role="img" aria-label="Ruleta americana de 38 casillas">
+                    <div id="roulette-wheel-ring" class="roulette-wheel-ring">
+                        <div class="roulette-ball-track">
+                            <span class="roulette-ball"></span>
+                        </div>
                     </div>
                     <span id="roulette-result">?</span>
                 </div>
+                <div class="roulette-quick-bets" role="group" aria-label="Importe rápido de apuesta">
+                    <span>Apuesta rápida</span>
+                    <button class="roulette-chip-choice" type="button" data-amount="100" aria-pressed="false">100</button>
+                    <button class="roulette-chip-choice" type="button" data-amount="500" aria-pressed="false">500</button>
+                    <button class="roulette-chip-choice" type="button" data-amount="1000" aria-pressed="false">1.000</button>
+                    <button class="roulette-chip-choice" type="button" data-amount="5000" aria-pressed="false">5.000</button>
+                </div>
+                <p id="roulette-countdown" class="roulette-countdown" role="status" aria-live="polite">
+                    Añade una apuesta para iniciar el conteo de 45 segundos.
+                </p>
                 <label class="bet-control" for="roulette-bet">
-                    Apuesta
+                    Importe por apuesta
                     <input id="roulette-bet" type="number" min="1" step="1" value="100" inputmode="numeric">
                     <span>puntos</span>
                 </label>
-                <button id="roulette-spin" class="boton" type="button">Girar ruleta</button>
+                <div class="roulette-bet-actions">
+                    <button id="roulette-add-bet" class="roulette-add-bet" type="button">Añadir apuesta</button>
+                    <button id="roulette-undo-bet" class="roulette-undo-bet" type="button" disabled>Quitar última</button>
+                </div>
+                <button id="roulette-max-bet" class="roulette-max-bet" type="button">Usar saldo restante</button>
                 <p id="roulette-message" class="roulette-message" role="status" aria-live="polite">Selecciona tu apuesta para jugar.</p>
             </div>
         </div>

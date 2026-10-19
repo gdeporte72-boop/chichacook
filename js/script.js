@@ -1,5 +1,75 @@
 let carrito = [];
 let productoEditando = null;
+let temporizadorResultadoJuego = null;
+let temporizadorConfetiJuego = null;
+let ventanaResultadoJuego = null;
+let confetiJuego = null;
+
+function limpiarConfetiJuego() {
+    window.clearTimeout(temporizadorConfetiJuego);
+    temporizadorConfetiJuego = null;
+    if (confetiJuego) {
+        confetiJuego.remove();
+        confetiJuego = null;
+    }
+}
+
+function mostrarConfetiJuego() {
+    limpiarConfetiJuego();
+    confetiJuego = document.createElement("div");
+    confetiJuego.className = "game-confetti";
+    confetiJuego.setAttribute("aria-hidden", "true");
+
+    for (let indice = 0; indice < 42; indice++) {
+        let pieza = document.createElement("span");
+        pieza.className = "game-confetti-piece";
+        pieza.style.left = Math.random() * 100 + "%";
+        pieza.style.setProperty("--confetti-drift", (Math.random() * 260 - 130) + "px");
+        pieza.style.animationDelay = Math.random() * 280 + "ms";
+        pieza.style.animationDuration = 1800 + Math.random() * 800 + "ms";
+        confetiJuego.append(pieza);
+    }
+
+    document.body.append(confetiJuego);
+    temporizadorConfetiJuego = window.setTimeout(limpiarConfetiJuego, 3000);
+}
+
+function mostrarResultadoJuego(resultado, cantidad) {
+    if (!ventanaResultadoJuego) {
+        ventanaResultadoJuego = document.createElement("div");
+        ventanaResultadoJuego.className = "game-result-popup";
+        ventanaResultadoJuego.setAttribute("role", "status");
+        ventanaResultadoJuego.setAttribute("aria-live", "assertive");
+        ventanaResultadoJuego.setAttribute("aria-atomic", "true");
+        document.body.append(ventanaResultadoJuego);
+    }
+
+    let titulo = resultado === "win"
+        ? "¡Ganaste!"
+        : resultado === "loss"
+            ? "¡Has perdido!"
+            : "Empate";
+    let detalle = resultado === "tie"
+        ? "No ganaste ni perdiste puntos."
+        : (resultado === "win" ? "+" : "-") +
+            cantidad.toLocaleString("es-CL") + " puntos";
+
+    ventanaResultadoJuego.className = "game-result-popup is-" + resultado;
+    ventanaResultadoJuego.replaceChildren();
+    limpiarConfetiJuego();
+    let tituloElemento = document.createElement("strong");
+    tituloElemento.textContent = titulo;
+    let detalleElemento = document.createElement("span");
+    detalleElemento.textContent = detalle;
+    ventanaResultadoJuego.append(tituloElemento, detalleElemento);
+    if (resultado === "win") mostrarConfetiJuego();
+
+    window.clearTimeout(temporizadorResultadoJuego);
+    temporizadorResultadoJuego = window.setTimeout(function() {
+        ventanaResultadoJuego.classList.remove("is-visible");
+    }, 5000);
+    ventanaResultadoJuego.classList.add("is-visible");
+}
 
 function actualizarCantidad() {
     document.querySelectorAll("#cantidad").forEach(function(elemento) {
@@ -157,27 +227,72 @@ function enviar(evento) {
 }
 
 function obtenerCuentas() {
-    let cuentas = JSON.parse(localStorage.getItem("chichacookUsers") || "[]");
-    if (!Array.isArray(cuentas)) cuentas = [];
+    let cuentas = [];
+    let cuentasTemporales = [];
+    try {
+        let guardadas = JSON.parse(localStorage.getItem("chichacookUsers") || "[]");
+        if (Array.isArray(guardadas)) cuentas = guardadas;
+    } catch (error) {
+    }
+    try {
+        let temporales = JSON.parse(sessionStorage.getItem("chichacookUsersSession") || "[]");
+        if (Array.isArray(temporales)) cuentasTemporales = temporales;
+    } catch (error) {
+    }
 
-    let cuentaAnterior = JSON.parse(localStorage.getItem("chichacookUser") || "null");
-    if (cuentaAnterior && !cuentas.some(function(cuenta) {
-        return cuenta.username.toLowerCase() === cuentaAnterior.username.toLowerCase();
-    })) {
-        cuentas.push(cuentaAnterior);
-        localStorage.setItem("chichacookUsers", JSON.stringify(cuentas));
+    cuentas = cuentas.filter(function(cuenta) {
+        return cuenta && typeof cuenta === "object" && !Array.isArray(cuenta);
+    });
+    cuentasTemporales.filter(function(cuenta) {
+        return cuenta && typeof cuenta === "object" && !Array.isArray(cuenta);
+    }).forEach(function(cuentaTemporal) {
+        let indice = cuentas.findIndex(function(cuenta) {
+            return normalizarIdentificador(cuenta.username) === normalizarIdentificador(cuentaTemporal.username) ||
+                (normalizarIdentificador(cuenta.email) &&
+                    normalizarIdentificador(cuenta.email) === normalizarIdentificador(cuentaTemporal.email));
+        });
+        if (indice < 0) cuentas.push(cuentaTemporal);
+        else cuentas[indice] = cuentaTemporal;
+    });
+
+    try {
+        let cuentaAnterior = JSON.parse(localStorage.getItem("chichacookUser") || "null");
+        if (cuentaAnterior && typeof cuentaAnterior === "object" && normalizarIdentificador(cuentaAnterior.username) &&
+            !cuentas.some(function(cuenta) {
+                return normalizarIdentificador(cuenta.username) === normalizarIdentificador(cuentaAnterior.username);
+            })) {
+            cuentas.push(cuentaAnterior);
+        }
+        if (cuentasTemporales.length || cuentaAnterior) {
+            localStorage.setItem("chichacookUsers", JSON.stringify(cuentas));
+            localStorage.removeItem("chichacookUser");
+            sessionStorage.removeItem("chichacookUsersSession");
+        }
+    } catch (error) {
     }
 
     return cuentas;
+}
+
+function guardarCuentas(cuentas) {
+    localStorage.setItem("chichacookUsers", JSON.stringify(cuentas));
+}
+
+function normalizarIdentificador(valor) {
+    return typeof valor === "string" ? valor.trim().toLowerCase() : "";
 }
 
 function obtenerCuentaSesion() {
     let usuarioSesion = sessionStorage.getItem("chichacookSession");
     if (!usuarioSesion) return null;
 
-    return obtenerCuentas().find(function(cuenta) {
-        return cuenta.username.toLowerCase() === usuarioSesion.toLowerCase();
+    let cuentas = obtenerCuentas();
+    let cuenta = cuentas.find(function(elemento) {
+        return normalizarIdentificador(elemento.username) === normalizarIdentificador(usuarioSesion);
     }) || null;
+    if (!cuenta) return null;
+
+    return cuenta;
 }
 
 function puntosCuenta(cuenta) {
@@ -190,16 +305,20 @@ function cambiarPuntosSesion(cambio) {
 
     let cuentas = obtenerCuentas();
     let cuenta = cuentas.find(function(elemento) {
-        return elemento.username.toLowerCase() === usuarioSesion.toLowerCase();
+        return normalizarIdentificador(elemento.username) === normalizarIdentificador(usuarioSesion);
     });
     if (!cuenta) return null;
 
     let nuevoSaldo = puntosCuenta(cuenta) + cambio;
     if (!Number.isSafeInteger(nuevoSaldo) || nuevoSaldo < 0) return null;
     cuenta.puntos = nuevoSaldo;
-    localStorage.setItem("chichacookUsers", JSON.stringify(cuentas));
+    guardarCuentas(cuentas);
     document.querySelectorAll("#blackjack-points, #roulette-points, #reward-points").forEach(function(elemento) {
         elemento.textContent = cuenta.puntos.toLocaleString("es-CL");
+    });
+    document.querySelectorAll(".session-points").forEach(function(elemento) {
+        elemento.textContent = "Puntos: " + cuenta.puntos.toLocaleString("es-CL");
+        elemento.setAttribute("aria-label", cuenta.puntos.toLocaleString("es-CL") + " puntos disponibles");
     });
     return cuenta.puntos;
 }
@@ -207,6 +326,7 @@ function cambiarPuntosSesion(cambio) {
 function actualizarNavegacionSesion() {
     let usuario = sessionStorage.getItem("chichacookSession");
     if (!usuario) return;
+    let cuenta = obtenerCuentaSesion();
 
     document.querySelectorAll(".account-nav").forEach(function(navegacion) {
         navegacion.replaceChildren();
@@ -215,13 +335,18 @@ function actualizarNavegacionSesion() {
         saludo.className = "session-user";
         saludo.textContent = "Hola, " + usuario;
 
+        let puntos = document.createElement("span");
+        puntos.className = "session-points";
+        puntos.textContent = "Puntos: " + (cuenta ? puntosCuenta(cuenta) : 0).toLocaleString("es-CL");
+        puntos.setAttribute("aria-label", (cuenta ? puntosCuenta(cuenta) : 0).toLocaleString("es-CL") + " puntos disponibles");
+
         let botonCerrar = document.createElement("button");
         botonCerrar.className = "logout-button";
         botonCerrar.type = "button";
         botonCerrar.textContent = "Cerrar sesión";
         botonCerrar.addEventListener("click", cerrarSesion);
 
-        navegacion.append(saludo, botonCerrar);
+        navegacion.append(saludo, puntos, botonCerrar);
     });
 }
 
@@ -412,11 +537,13 @@ function iniciarBlackjack() {
         if (puntosJugador > 21) {
             derrotas++;
             liquidarApuesta("loss");
+            mostrarResultadoJuego("loss", apuestaActual);
             mostrarMensaje("¡Te pasaste de 21! Gana la casa. Perdiste " +
                 apuestaActual.toLocaleString("es-CL") + " puntos.", "loss");
         } else if (puntosCasa > 21 || puntosJugador > puntosCasa) {
             victorias++;
             liquidarApuesta("win");
+            mostrarResultadoJuego("win", apuestaActual);
             mostrarMensaje((puntosCasa > 21
                 ? "¡La casa se pasó de 21! ¡Ganaste!"
                 : "¡Ganaste con " + puntosJugador + " puntos!") +
@@ -424,10 +551,12 @@ function iniciarBlackjack() {
         } else if (puntosJugador < puntosCasa) {
             derrotas++;
             liquidarApuesta("loss");
+            mostrarResultadoJuego("loss", apuestaActual);
             mostrarMensaje("La casa tiene " + puntosCasa + ". Pierdes " +
                 apuestaActual.toLocaleString("es-CL") + " puntos.", "loss");
         } else {
             liquidarApuesta("tie");
+            mostrarResultadoJuego("tie", 0);
             mostrarMensaje("Empate con " + puntosJugador + " puntos. Se devuelve tu apuesta de " +
                 apuestaActual.toLocaleString("es-CL") + ".", "tie");
         }
@@ -504,15 +633,18 @@ function iniciarBlackjack() {
             actualizarMesa(true);
             if (blackjackJugador && blackjackCasa) {
                 liquidarApuesta("tie");
+                mostrarResultadoJuego("tie", 0);
                 mostrarMensaje("¡Blackjack para ambos! Empate; se devuelve tu apuesta.", "tie");
             } else if (blackjackJugador) {
                 victorias++;
                 liquidarApuesta("win");
+                mostrarResultadoJuego("win", apuestaActual);
                 mostrarMensaje("¡Blackjack! Ganaste y recibes " +
                     (apuestaActual * 2).toLocaleString("es-CL") + " puntos.", "win");
             } else {
                 derrotas++;
                 liquidarApuesta("loss");
+                mostrarResultadoJuego("loss", apuestaActual);
                 mostrarMensaje("La casa tiene blackjack. Pierdes " +
                     apuestaActual.toLocaleString("es-CL") + " puntos.", "loss");
             }
@@ -559,21 +691,97 @@ function iniciarRuleta() {
     if (!tablero) return;
 
     let numerosRojos = new Set([1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36]);
+    let ordenRuleta = ["0", "28", "9", "26", "30", "11", "7", "20", "32", "17", "5", "22", "34", "15", "3", "24", "36", "13", "1", "00", "27", "10", "25", "29", "12", "8", "19", "31", "18", "6", "21", "33", "16", "4", "23", "35", "14", "2"];
+    let duracionVueltaRuleta = 90000;
     let opciones = Array.from(document.querySelectorAll(".roulette-bet-choice"));
+    let fichasRapidas = Array.from(document.querySelectorAll(".roulette-chip-choice"));
     let apuestaInput = document.getElementById("roulette-bet");
-    let botonGirar = document.getElementById("roulette-spin");
+    let botonAgregarApuesta = document.getElementById("roulette-add-bet");
+    let botonDeshacerApuesta = document.getElementById("roulette-undo-bet");
+    let botonApuestaMaxima = document.getElementById("roulette-max-bet");
+    let botonLimpiarApuestas = document.getElementById("roulette-clear-bets");
     let rueda = document.getElementById("roulette-wheel");
+    let aroRuleta = document.getElementById("roulette-wheel-ring");
+    let pistaPelota = rueda.querySelector(".roulette-ball-track");
     let resultadoElemento = document.getElementById("roulette-result");
     let mensaje = document.getElementById("roulette-message");
+    let cuentaAtras = document.getElementById("roulette-countdown");
     let seleccion = document.getElementById("roulette-selection");
+    let listaApuestas = document.getElementById("roulette-pending-list");
+    let contadorApuestas = document.getElementById("roulette-bet-count");
+    let totalApuestaTexto = document.getElementById("roulette-total-bet");
     let botonesCasilla = [];
+    let etiquetasRueda = [];
+    let apuestasPendientes = [];
     let tipoApuesta = "number";
     let numeroElegido = "0";
+    let importeRapido = null;
     let girando = false;
+    let temporizadorApuesta = null;
+    let finCuentaAtras = 0;
+    let audioContext = null;
+    let sonidoActivo = false;
 
     function colorNumero(numero) {
         if (numero === "0" || numero === "00") return "green";
         return numerosRojos.has(Number(numero)) ? "red" : "black";
+    }
+
+    function numeroIncluido(numero, tipo, numeroApostado) {
+        let valor = numero === "00" ? 0 : Number(numero);
+        if (tipo === "number") return numero === numeroApostado;
+        if (tipo === "red" || tipo === "black") return colorNumero(numero) === tipo;
+        if (valor === 0) return false;
+        if (tipo === "even") return valor % 2 === 0;
+        if (tipo === "odd") return valor % 2 === 1;
+        if (tipo === "low") return valor <= 18;
+        if (tipo === "high") return valor >= 19;
+        if (tipo.indexOf("dozen-") === 0) {
+            let docena = Number(tipo.slice(-1));
+            return valor >= (docena - 1) * 12 + 1 && valor <= docena * 12;
+        }
+        if (tipo.indexOf("column-") === 0) {
+            return valor % 3 === Number(tipo.slice(-1)) % 3;
+        }
+        return false;
+    }
+
+    function multiplicadorApuesta(tipo) {
+        if (tipo === "number") return 36;
+        if (tipo.indexOf("dozen-") === 0 || tipo.indexOf("column-") === 0) return 3;
+        return 2;
+    }
+
+    function agregarApuesta(importe) {
+        let cuenta = obtenerCuentaSesion();
+        if (!cuenta) {
+            mostrarMensaje("Inicia sesión para preparar apuestas.", "loss");
+            return false;
+        }
+
+        let total = totalApostado();
+        if (!Number.isSafeInteger(importe) || importe <= 0 || !Number.isSafeInteger(total + importe)) {
+            mostrarMensaje("Ingresa un importe válido para esta apuesta.", "loss");
+            return false;
+        }
+        if (total + importe > puntosCuenta(cuenta)) {
+            mostrarMensaje("El total supera tu saldo disponible.", "loss");
+            return false;
+        }
+
+        apuestasPendientes.push({ tipo: tipoApuesta, numero: numeroElegido, importe: importe });
+        actualizarApuestas();
+        mostrarMensaje("Apuesta añadida: " +
+            descripcionApuesta(apuestasPendientes[apuestasPendientes.length - 1]) + ".", "");
+        iniciarCuentaAtras();
+        return true;
+    }
+
+    function desactivarApuestaRapida() {
+        importeRapido = null;
+        fichasRapidas.forEach(function(ficha) {
+            ficha.setAttribute("aria-pressed", "false");
+        });
     }
 
     function crearCasilla(numero, claseColor, columna, fila, filasOcupadas) {
@@ -581,13 +789,15 @@ function iniciarRuleta() {
         boton.type = "button";
         boton.className = "roulette-number is-" + claseColor;
         boton.textContent = numero;
+        boton.dataset.number = numero;
         boton.setAttribute("aria-label", numero === "00" ? "Doble cero, verde" : "Número " + numero + ", " + claseColor);
         boton.style.gridColumn = String(columna);
         boton.style.gridRow = fila + (filasOcupadas > 1 ? " / span " + filasOcupadas : "");
         boton.addEventListener("click", function() {
-            numeroElegido = numero;
+            numeroElegido = boton.dataset.number;
             tipoApuesta = "number";
             actualizarSeleccion();
+            if (importeRapido !== null) agregarApuesta(importeRapido);
         });
         tablero.append(boton);
         botonesCasilla.push(boton);
@@ -600,16 +810,21 @@ function iniciarRuleta() {
             opcion.setAttribute("aria-pressed", String(activa));
         });
         botonesCasilla.forEach(function(boton) {
-            let coincide = tipoApuesta === "number"
-                ? boton.textContent === numeroElegido
-                : colorNumero(boton.textContent) === tipoApuesta;
-            boton.classList.toggle("is-selected", coincide);
+            boton.classList.toggle("is-selected", numeroIncluido(boton.dataset.number, tipoApuesta, numeroElegido));
         });
 
         if (tipoApuesta === "number") {
             seleccion.textContent = "Apuesta al número " + numeroElegido + " (paga 35 a 1).";
+        } else if (tipoApuesta.indexOf("dozen-") === 0) {
+            seleccion.textContent = "Apuesta a la docena " + tipoApuesta.slice(-1) + " (paga 2 a 1).";
+        } else if (tipoApuesta.indexOf("column-") === 0) {
+            seleccion.textContent = "Apuesta a la columna " + tipoApuesta.slice(-1) + " (paga 2 a 1).";
         } else {
-            seleccion.textContent = "Apuesta al " + (tipoApuesta === "red" ? "rojo" : "negro") + " (paga 1 a 1).";
+            let descripciones = {
+                red: "el rojo", black: "el negro", even: "los pares", odd: "los impares",
+                low: "1 al 18", high: "19 al 36"
+            };
+            seleccion.textContent = "Apuesta a " + descripciones[tipoApuesta] + " (paga 1 a 1).";
         }
     }
 
@@ -621,23 +836,112 @@ function iniciarRuleta() {
 
     function actualizarSaldo() {
         let cuenta = obtenerCuentaSesion();
+        let saldo = cuenta ? puntosCuenta(cuenta) : 0;
         document.getElementById("roulette-points").textContent = cuenta
-            ? puntosCuenta(cuenta).toLocaleString("es-CL")
+            ? saldo.toLocaleString("es-CL")
             : "Inicia sesión";
+        apuestaInput.max = String(saldo);
+    }
+
+    function totalApostado() {
+        return apuestasPendientes.reduce(function(total, apuesta) {
+            return total + apuesta.importe;
+        }, 0);
+    }
+
+    function descripcionApuesta(apuesta) {
+        if (apuesta.tipo === "number") return "Número " + apuesta.numero;
+        if (apuesta.tipo.indexOf("dozen-") === 0) return "Docena " + apuesta.tipo.slice(-1);
+        if (apuesta.tipo.indexOf("column-") === 0) return "Columna " + apuesta.tipo.slice(-1);
+        let descripciones = {
+            red: "Rojo", black: "Negro", even: "Par", odd: "Impar",
+            low: "1-18", high: "19-36"
+        };
+        return descripciones[apuesta.tipo];
+    }
+
+    function actualizarApuestas() {
+        listaApuestas.replaceChildren();
+        let apuestasPorPosicion = new Map();
+        document.querySelectorAll(".roulette-number, .roulette-bet-choice").forEach(function(boton) {
+            boton.classList.remove("is-on-bet");
+            boton.querySelectorAll(".roulette-chip").forEach(function(ficha) {
+                ficha.remove();
+            });
+        });
+
+        apuestasPendientes.forEach(function(apuesta) {
+            let elemento = document.createElement("li");
+            let nombre = document.createElement("span");
+            let importe = document.createElement("strong");
+            nombre.textContent = descripcionApuesta(apuesta);
+            importe.textContent = apuesta.importe.toLocaleString("es-CL") + " pts";
+            elemento.append(nombre, importe);
+            listaApuestas.append(elemento);
+
+            let boton = apuesta.tipo === "number"
+                ? botonesCasilla.find(function(casilla) { return casilla.dataset.number === apuesta.numero; })
+                : opciones.find(function(opcion) { return opcion.dataset.betType === apuesta.tipo; });
+            if (boton) apuestasPorPosicion.set(boton, (apuestasPorPosicion.get(boton) || 0) + 1);
+        });
+
+        if (apuestasPendientes.length === 0) {
+            let vacio = document.createElement("li");
+            vacio.className = "is-empty";
+            vacio.textContent = "Sin apuestas todavía.";
+            listaApuestas.append(vacio);
+        }
+        listaApuestas.scrollTop = listaApuestas.scrollHeight;
+
+        apuestasPorPosicion.forEach(function(cantidad, boton) {
+            boton.classList.add("is-on-bet");
+            let ficha = document.createElement("span");
+            ficha.className = "roulette-chip";
+            ficha.setAttribute("aria-hidden", "true");
+            ficha.textContent = String(cantidad);
+            boton.append(ficha);
+        });
+
+        let total = totalApostado();
+        let cuenta = obtenerCuentaSesion();
+        let restante = cuenta ? Math.max(0, puntosCuenta(cuenta) - total) : 0;
+        contadorApuestas.textContent = "Apuestas preparadas: " + apuestasPendientes.length;
+        totalApuestaTexto.textContent = "Total apostado: " + total.toLocaleString("es-CL") +
+            " puntos · Saldo restante: " + restante.toLocaleString("es-CL");
+        botonLimpiarApuestas.disabled = girando || apuestasPendientes.length === 0;
+        botonAgregarApuesta.disabled = girando;
+        botonDeshacerApuesta.disabled = girando || apuestasPendientes.length === 0;
+        botonApuestaMaxima.disabled = girando || restante === 0;
+        fichasRapidas.forEach(function(ficha) {
+            ficha.disabled = girando;
+        });
+        apuestaInput.max = String(restante);
+        if (apuestasPendientes.length === 0 && temporizadorApuesta !== null) {
+            cancelarCuentaAtras();
+        }
     }
 
     function cambiarEstadoControles(bloqueado) {
-        botonGirar.disabled = bloqueado;
         apuestaInput.disabled = bloqueado;
+        botonAgregarApuesta.disabled = bloqueado;
+        botonDeshacerApuesta.disabled = bloqueado || apuestasPendientes.length === 0;
+        botonApuestaMaxima.disabled = bloqueado || (obtenerCuentaSesion() &&
+            puntosCuenta(obtenerCuentaSesion()) <= totalApostado());
+        botonLimpiarApuestas.disabled = bloqueado || apuestasPendientes.length === 0;
+        fichasRapidas.forEach(function(ficha) {
+            ficha.disabled = bloqueado;
+        });
         opciones.forEach(function(opcion) {
             opcion.disabled = bloqueado;
         });
         botonesCasilla.forEach(function(boton) {
             boton.disabled = bloqueado;
         });
+        if (!bloqueado) actualizarApuestas();
     }
 
     createRouletteBoard();
+    crearRueda();
 
     function createRouletteBoard() {
         crearCasilla("0", "green", 1, 1, 2);
@@ -647,85 +951,325 @@ function iniciarRuleta() {
             let columna = Math.floor((numero - 1) / 3) + 2;
             crearCasilla(String(numero), colorNumero(String(numero)), columna, fila, 1);
         }
+
+        let posicionesApuesta = {
+            "column-3": [14, 1], "column-2": [14, 2], "column-1": [14, 3],
+            "dozen-1": [2, 4, 4], "dozen-2": [6, 4, 4], "dozen-3": [10, 4, 4],
+            low: [2, 5, 2], even: [4, 5, 2], red: [6, 5, 2],
+            black: [8, 5, 2], odd: [10, 5, 2], high: [12, 5, 2]
+        };
+        opciones.forEach(function(opcion) {
+            let posicion = posicionesApuesta[opcion.dataset.betType];
+            if (!posicion) return;
+            opcion.style.gridColumn = String(posicion[0]) + (posicion[2] ? " / span " + posicion[2] : "");
+            opcion.style.gridRow = String(posicion[1]);
+        });
+    }
+
+    function crearRueda() {
+        let gradosPorCasilla = 360 / ordenRuleta.length;
+        let sectores = [];
+        ordenRuleta.forEach(function(numero, indice) {
+            let inicio = indice * gradosPorCasilla;
+            let fin = (indice + 1) * gradosPorCasilla;
+            let color = colorNumero(numero);
+            let colorSector = color === "red" ? "#c51f35" : color === "green" ? "#16844f" : "#202020";
+            let finSector = fin - .35;
+            sectores.push(colorSector + " " + inicio + "deg " + finSector + "deg");
+            sectores.push("#f2c94c " + finSector + "deg " + fin + "deg");
+
+            let etiqueta = document.createElement("span");
+            let textoEtiqueta = document.createElement("span");
+            let angulo = inicio + gradosPorCasilla / 2;
+            etiqueta.className = "roulette-wheel-number is-" + color;
+            textoEtiqueta.className = "roulette-wheel-number-label";
+            textoEtiqueta.textContent = numero;
+            textoEtiqueta.style.transform = "rotate(0deg)";
+            etiqueta.style.transform = "translate(-50%, -50%) rotate(" + angulo + "deg) translateY(calc(0px - var(--wheel-radius))) rotate(" + -angulo + "deg)";
+            etiqueta.append(textoEtiqueta);
+            aroRuleta.append(etiqueta);
+            etiquetasRueda.push(textoEtiqueta);
+        });
+        aroRuleta.style.background = "conic-gradient(" + sectores.join(", ") + ")";
+    }
+
+    aroRuleta.classList.add("is-idle");
+
+    function anguloActualRueda() {
+        let transformacion = window.getComputedStyle(aroRuleta).transform;
+        if (transformacion === "none") return 0;
+        let matriz = new DOMMatrixReadOnly(transformacion);
+        return (Math.atan2(matriz.b, matriz.a) * 180 / Math.PI + 360) % 360;
+    }
+
+    function anguloActualBola() {
+        let transformacion = window.getComputedStyle(pistaPelota).transform;
+        if (transformacion === "none") return 0;
+        let matriz = new DOMMatrixReadOnly(transformacion);
+        return (Math.atan2(matriz.b, matriz.a) * 180 / Math.PI + 360) % 360;
+    }
+
+    function iniciarGiroLento() {
+        if (aroRuleta.classList.contains("is-idle")) return;
+        aroRuleta.style.setProperty("--wheel-start-angle", anguloActualRueda() + "deg");
+        aroRuleta.classList.add("is-idle");
+    }
+
+    function actualizarCuentaAtras() {
+        let segundos = Math.max(0, Math.ceil((finCuentaAtras - Date.now()) / 1000));
+        cuentaAtras.textContent = "Quedan " + segundos + " s para girar la ruleta.";
+        if (segundos === 0) {
+            window.clearInterval(temporizadorApuesta);
+            temporizadorApuesta = null;
+            girarRuleta();
+        }
+    }
+
+    function iniciarCuentaAtras() {
+        if (temporizadorApuesta !== null || girando || apuestasPendientes.length === 0) return;
+        iniciarGiroLento();
+        finCuentaAtras = Date.now() + 45000;
+        actualizarCuentaAtras();
+        temporizadorApuesta = window.setInterval(actualizarCuentaAtras, 1000);
+    }
+
+    function cancelarCuentaAtras() {
+        if (temporizadorApuesta !== null) {
+            window.clearInterval(temporizadorApuesta);
+            temporizadorApuesta = null;
+        }
+        cuentaAtras.textContent = "Añade una apuesta para iniciar el conteo de 45 segundos.";
     }
 
     opciones.forEach(function(opcion) {
         opcion.addEventListener("click", function() {
             tipoApuesta = opcion.dataset.betType;
             actualizarSeleccion();
+            if (importeRapido !== null) agregarApuesta(importeRapido);
         });
     });
 
-    botonGirar.addEventListener("click", function() {
-        if (girando) return;
+    fichasRapidas.forEach(function(ficha) {
+        ficha.addEventListener("click", function() {
+            importeRapido = Number(ficha.dataset.amount);
+            apuestaInput.value = String(importeRapido);
+            fichasRapidas.forEach(function(otraFicha) {
+                otraFicha.setAttribute("aria-pressed", String(otraFicha === ficha));
+            });
+            mostrarMensaje("Importe rápido seleccionado: " +
+                importeRapido.toLocaleString("es-CL") + " puntos. Toca una casilla para apostar.", "");
+        });
+    });
+
+    botonApuestaMaxima.addEventListener("click", function() {
         let cuenta = obtenerCuentaSesion();
         if (!cuenta) {
             mostrarMensaje("Inicia sesión para apostar tus puntos en la ruleta.", "loss");
             return;
         }
+        desactivarApuestaRapida();
+        apuestaInput.value = String(Math.max(0, puntosCuenta(cuenta) - totalApostado()));
+        apuestaInput.focus();
+    });
 
-        let cantidadApuesta = Number(apuestaInput.value);
-        let multiplicador = tipoApuesta === "number" ? 36 : 2;
-        if (!Number.isSafeInteger(cantidadApuesta) || cantidadApuesta <= 0 ||
-            cantidadApuesta > Math.floor(Number.MAX_SAFE_INTEGER / multiplicador) ||
-            cantidadApuesta * multiplicador > Number.MAX_SAFE_INTEGER - puntosCuenta(cuenta) + cantidadApuesta) {
-            mostrarMensaje("Ingresa una apuesta válida en puntos (mínimo 1).", "loss");
-            apuestaInput.focus();
+    apuestaInput.addEventListener("input", desactivarApuestaRapida);
+
+    botonAgregarApuesta.addEventListener("click", function() {
+        agregarApuesta(Number(apuestaInput.value));
+    });
+
+    botonLimpiarApuestas.addEventListener("click", function() {
+        apuestasPendientes = [];
+        actualizarApuestas();
+        mostrarMensaje("Se vaciaron las apuestas preparadas.", "");
+        cancelarCuentaAtras();
+    });
+
+    botonDeshacerApuesta.addEventListener("click", function() {
+        if (girando || apuestasPendientes.length === 0) return;
+        let apuestaQuitada = apuestasPendientes.pop();
+        actualizarApuestas();
+        mostrarMensaje("Se quitó la apuesta a " + descripcionApuesta(apuestaQuitada) + ".", "");
+    });
+
+    function reproducirSonidoGiro(duracion) {
+        let ConstructorAudio = window.AudioContext || window.webkitAudioContext;
+        if (!ConstructorAudio) return;
+        try {
+            audioContext = audioContext || new ConstructorAudio();
+            if (audioContext.state === "suspended") audioContext.resume();
+        } catch (error) {
             return;
         }
+
+        sonidoActivo = true;
+        let inicio = Date.now();
+        function emitirTick() {
+            if (!sonidoActivo) return;
+            let ahora = audioContext.currentTime;
+            let oscilador = audioContext.createOscillator();
+            let volumen = audioContext.createGain();
+            oscilador.type = "square";
+            oscilador.frequency.setValueAtTime(880, ahora);
+            volumen.gain.setValueAtTime(0.045, ahora);
+            volumen.gain.exponentialRampToValueAtTime(0.001, ahora + 0.035);
+            oscilador.connect(volumen);
+            volumen.connect(audioContext.destination);
+            oscilador.start(ahora);
+            oscilador.stop(ahora + 0.04);
+
+            let transcurrido = Date.now() - inicio;
+            if (transcurrido < duracion) window.setTimeout(emitirTick, 45 + transcurrido / 24);
+            else sonidoActivo = false;
+        }
+        emitirTick();
+    }
+
+    function girarRuleta() {
+        if (girando) return;
+        let cuenta = obtenerCuentaSesion();
+        if (!cuenta) {
+            mostrarMensaje("Inicia sesión para apostar tus puntos en la ruleta.", "loss");
+            apuestasPendientes = [];
+            actualizarApuestas();
+            actualizarSaldo();
+            cancelarCuentaAtras();
+            return;
+        }
+
+        if (apuestasPendientes.length === 0) {
+            cancelarCuentaAtras();
+            return;
+        }
+        let apuestasDelGiro = apuestasPendientes.slice();
+        let cantidadApuesta = totalApostado();
         if (cantidadApuesta > puntosCuenta(cuenta)) {
             mostrarMensaje("Saldo insuficiente. Tienes " +
                 puntosCuenta(cuenta).toLocaleString("es-CL") + " puntos.", "loss");
-            apuestaInput.focus();
+            apuestasPendientes = [];
+            actualizarApuestas();
+            actualizarSaldo();
+            cancelarCuentaAtras();
+            return;
+        }
+        let premioMaximo = 0;
+        let premioNoValido = apuestasDelGiro.some(function(apuesta) {
+            let multiplicador = multiplicadorApuesta(apuesta.tipo);
+            if (apuesta.importe > Math.floor(Number.MAX_SAFE_INTEGER / multiplicador)) return true;
+            premioMaximo += apuesta.importe * multiplicador;
+            return !Number.isSafeInteger(premioMaximo);
+        });
+        if (premioNoValido || premioMaximo > Number.MAX_SAFE_INTEGER - puntosCuenta(cuenta) + cantidadApuesta) {
+            mostrarMensaje("El premio potencial supera el límite de puntos permitido.", "loss");
+            apuestasPendientes = [];
+            actualizarApuestas();
+            cancelarCuentaAtras();
             return;
         }
         if (cambiarPuntosSesion(-cantidadApuesta) === null) {
             mostrarMensaje("No se pudo registrar la apuesta. Vuelve a iniciar sesión.", "loss");
+            apuestasPendientes = [];
+            actualizarApuestas();
+            actualizarSaldo();
+            cancelarCuentaAtras();
             return;
         }
 
         girando = true;
         cambiarEstadoControles(true);
+        let gradosPorCasilla = 360 / ordenRuleta.length;
+        let anguloInicioPelota = Math.floor(Math.random() * 360);
+        let vueltasBola = 2 + Math.floor(Math.random() * 4);
+        let duracionGiroPelota = 6500 + vueltasBola * 700 + Math.floor(Math.random() * 1300);
+        let recorridoExtra = Math.random() * 360;
+        let anguloFinalPelota = anguloInicioPelota - vueltasBola * 360 - recorridoExtra;
         resultadoElemento.textContent = "?";
-        rueda.classList.remove("is-spinning");
-        rueda.querySelector(".roulette-ball-track").classList.remove("is-spinning");
+        pistaPelota.classList.remove("is-revealed", "is-spinning", "is-landed");
+        pistaPelota.style.setProperty("--ball-start-angle", anguloInicioPelota + "deg");
+        pistaPelota.style.setProperty("--ball-end-angle", anguloFinalPelota + "deg");
+        pistaPelota.style.setProperty("--ball-duration", duracionGiroPelota + "ms");
+        pistaPelota.style.transform = "rotate(" + anguloInicioPelota + "deg)";
         void rueda.offsetWidth;
-        rueda.classList.add("is-spinning");
-        rueda.querySelector(".roulette-ball-track").classList.add("is-spinning");
+        pistaPelota.classList.add("is-revealed", "is-spinning");
+        reproducirSonidoGiro(duracionGiroPelota);
         mensaje.classList.remove("is-win", "is-loss");
-        mensaje.textContent = "Ruleta girando... Apuesta: " + cantidadApuesta.toLocaleString("es-CL") + " puntos.";
+        mensaje.textContent = "La bola está girando. La ruleta sigue girando lentamente.";
+        cuentaAtras.textContent = "Apuestas cerradas. La bola está girando...";
 
         window.setTimeout(function() {
-            let resultado = Math.floor(Math.random() * 38);
-            let numero = resultado === 0 ? "0" : resultado === 37 ? "00" : String(resultado);
+            sonidoActivo = false;
+            let anguloFinalBola = anguloActualBola();
+            let anguloBolsillo = (anguloFinalBola % 360 + 360) % 360;
+            let resultado = Math.min(
+                ordenRuleta.length - 1,
+                Math.floor(anguloBolsillo / gradosPorCasilla)
+            );
+            let numero = ordenRuleta[resultado];
             let color = colorNumero(numero);
-            let gano = tipoApuesta === "number"
-                ? numero === numeroElegido
-                : tipoApuesta === color;
-            let premio = gano ? cantidadApuesta * multiplicador : 0;
+            let apuestasGanadoras = apuestasDelGiro.filter(function(apuesta) {
+                return numeroIncluido(numero, apuesta.tipo, apuesta.numero);
+            });
+            let premio = apuestasGanadoras.reduce(function(total, apuesta) {
+                return total + apuesta.importe * multiplicadorApuesta(apuesta.tipo);
+            }, 0);
+            let importeGanador = apuestasGanadoras.reduce(function(total, apuesta) {
+                return total + apuesta.importe;
+            }, 0);
 
             resultadoElemento.textContent = numero;
-            rueda.classList.remove("is-spinning");
+            let ruedaAlineada = -anguloFinalBola;
+            aroRuleta.style.transform = "rotate(" + ruedaAlineada + "deg)";
+            etiquetasRueda.forEach(function(etiqueta) {
+                etiqueta.style.transform = "rotate(" + -ruedaAlineada + "deg)";
+            });
+            aroRuleta.classList.remove("is-idle");
+            pistaPelota.classList.remove("is-spinning");
+            pistaPelota.classList.add("is-landed");
+            pistaPelota.style.transform = "rotate(" + anguloFinalBola + "deg)";
+            rueda.setAttribute("aria-label", "Ruleta americana: salió " + numero + " " + color);
             if (premio > 0) {
                 let saldo = cambiarPuntosSesion(premio);
                 if (saldo === null) {
+                    mostrarResultadoJuego("loss", cantidadApuesta);
                     mostrarMensaje("Salió " + numero + " " + color + ". No se pudo abonar el premio.", "loss");
                 } else {
-                    mostrarMensaje("Salió " + numero + " " + color + ": ¡ganaste! Recibes " +
-                        premio.toLocaleString("es-CL") + " puntos.", "win");
+                    let gananciaNeta = premio - cantidadApuesta;
+                    let resultadoNeto = gananciaNeta > 0
+                        ? "win"
+                        : gananciaNeta < 0
+                            ? "loss"
+                            : "tie";
+                    if (gananciaNeta > 0) {
+                        mostrarResultadoJuego("win", gananciaNeta);
+                    } else if (gananciaNeta < 0) {
+                        mostrarResultadoJuego("loss", Math.abs(gananciaNeta));
+                    } else {
+                        mostrarResultadoJuego("tie", 0);
+                    }
+                    mostrarMensaje("Salió " + numero + " " + color + ": premio total " +
+                        premio.toLocaleString("es-CL") + " puntos (incluye " +
+                        importeGanador.toLocaleString("es-CL") + " de apuestas devueltas; ganancia neta " +
+                        gananciaNeta.toLocaleString("es-CL") + ").", "win");
+                    mensaje.classList.remove("is-win", "is-loss");
+                    if (resultadoNeto !== "tie") mensaje.classList.add("is-" + resultadoNeto);
                 }
             } else {
+                mostrarResultadoJuego("loss", cantidadApuesta);
                 mostrarMensaje("Salió " + numero + " " + color + ". No hubo premio; perdiste " +
                     cantidadApuesta.toLocaleString("es-CL") + " puntos.", "loss");
             }
+            apuestasPendientes = [];
             girando = false;
             cambiarEstadoControles(false);
+            actualizarApuestas();
             actualizarSaldo();
-        }, 1900);
-    });
+            cancelarCuentaAtras();
+        }, duracionGiroPelota + 150);
+    }
 
     actualizarSeleccion();
     actualizarSaldo();
+    actualizarApuestas();
 }
 
 document.querySelector(".register-form")?.addEventListener("submit", function(evento) {
@@ -738,16 +1282,29 @@ document.querySelector(".register-form")?.addEventListener("submit", function(ev
     let cuentas = obtenerCuentas();
 
     if (cuentas.some(function(cuenta) {
-        return cuenta.email === email || cuenta.username.toLowerCase() === username.toLowerCase();
+        return normalizarIdentificador(cuenta.email) === email ||
+            normalizarIdentificador(cuenta.username) === normalizarIdentificador(username);
     })) {
         alert("Ese correo o usuario ya está registrado.");
         return;
     }
 
-    cuentas.push({ email, username, password, displayName, puntos: 0, bonoBienvenidaOtorgado: false });
-    localStorage.setItem("chichacookUsers", JSON.stringify(cuentas));
+    cuentas.push({ email, username, password, displayName, puntos: 0 });
+    guardarCuentas(cuentas);
     alert("Cuenta creada. Ya puedes iniciar sesión.");
     window.location.href = "login.html";
+});
+
+document.querySelectorAll(".password-toggle").forEach(function(boton) {
+    boton.addEventListener("click", function() {
+        let campo = document.getElementById(boton.getAttribute("aria-controls"));
+        if (!campo) return;
+
+        let mostrar = campo.type === "password";
+        campo.type = mostrar ? "text" : "password";
+        boton.textContent = mostrar ? "Ocultar" : "Mostrar";
+        boton.setAttribute("aria-pressed", String(mostrar));
+    });
 });
 
 document.querySelector(".login-form")?.addEventListener("submit", function(evento) {
@@ -757,7 +1314,10 @@ document.querySelector(".login-form")?.addEventListener("submit", function(event
     let password = document.getElementById("password").value;
     let cuentas = obtenerCuentas();
     let cuenta = cuentas.find(function(usuario) {
-        return (identificador === usuario.email || identificador === usuario.username.toLowerCase()) && password === usuario.password;
+        let correo = normalizarIdentificador(usuario.email);
+        let username = normalizarIdentificador(usuario.username);
+        return (identificador === correo || identificador === username) &&
+            typeof usuario.password === "string" && password === usuario.password;
     });
 
     if (!cuenta) {
@@ -765,17 +1325,51 @@ document.querySelector(".login-form")?.addEventListener("submit", function(event
         return;
     }
 
-    cuenta.puntos = puntosCuenta(cuenta);
-    if (!cuenta.bonoBienvenidaOtorgado) {
-        cuenta.puntos += 2000;
-        cuenta.bonoBienvenidaOtorgado = true;
-        localStorage.setItem("chichacookUsers", JSON.stringify(cuentas));
-        alert("¡Bienvenido/a, " + cuenta.displayName + "! Recibiste 2.000 puntos de bienvenida.");
-    } else {
-        alert("¡Bienvenido/a, " + cuenta.displayName + "!");
-    }
     sessionStorage.setItem("chichacookSession", cuenta.username);
+    alert("¡Bienvenido/a, " + cuenta.displayName + "! Tienes " +
+        puntosCuenta(cuenta).toLocaleString("es-CL") + " puntos.");
     window.location.href = "index.html";
+});
+
+let recoveryDialog = document.getElementById("password-recovery-dialog");
+let recoveryForm = document.getElementById("password-recovery-form");
+
+document.getElementById("open-password-recovery")?.addEventListener("click", function() {
+    document.getElementById("recovery-message").textContent = "";
+    recoveryDialog.showModal();
+});
+
+document.getElementById("close-password-recovery")?.addEventListener("click", function() {
+    recoveryDialog.close();
+});
+
+recoveryForm?.addEventListener("submit", function(evento) {
+    evento.preventDefault();
+
+    let email = document.getElementById("recovery-email").value.trim().toLowerCase();
+    let password = document.getElementById("recovery-password").value;
+    let passwordConfirm = document.getElementById("recovery-password-confirm").value;
+    let mensaje = document.getElementById("recovery-message");
+
+    if (password !== passwordConfirm) {
+        mensaje.textContent = "Las contraseñas no coinciden.";
+        return;
+    }
+
+    let cuentas = obtenerCuentas();
+    let cuenta = cuentas.find(function(usuario) {
+        return usuario.email && usuario.email.toLowerCase() === email;
+    });
+
+    if (!cuenta) {
+        mensaje.textContent = "No encontramos una cuenta con ese correo.";
+        return;
+    }
+
+    cuenta.password = password;
+    guardarCuentas(cuentas);
+    recoveryForm.reset();
+    mensaje.textContent = "Contraseña actualizada. Ya puedes iniciar sesión.";
 });
 
 document.getElementById("redeem-reward")?.addEventListener("click", function(evento) {
