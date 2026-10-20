@@ -21,18 +21,35 @@ header {
 .logo {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
     margin-right: auto;
+    color: inherit;
+    flex-shrink: 0;
+    text-decoration: none;
 }
 
 .logo img {
-    width: 60px;
-    height: 60px;
+    display: block;
+    width: 150px;
+    height: 64px;
     object-fit: contain;
 }
 
-.logo h2 {
-    margin: 0;
+.logo-name {
+    color: white;
+    font-size: 28px;
+    font-weight: bold;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+.logo-accent {
+    color: #f2c94c;
+}
+
+.logo:focus-visible {
+    outline: 2px solid #f2c94c;
+    outline-offset: 4px;
 }
 
 header h2 {
@@ -1348,8 +1365,8 @@ footer {
 .roulette-wheel {
     position: relative;
     display: grid;
-    width: 284px;
-    height: 284px;
+    width: 320px;
+    height: 320px;
     max-width: 100%;
     place-items: center;
     background: #4d0919;
@@ -1376,7 +1393,7 @@ footer {
 .roulette-wheel-ring {
     position: absolute;
     inset: 8px;
-    --wheel-radius: 108px;
+    --wheel-radius: 126px;
     overflow: hidden;
     border: 3px solid #f2c94c;
     border-radius: 50%;
@@ -1671,7 +1688,7 @@ footer {
     color: white;
     background: #4d0919;
     border-bottom: 6px solid #f2c94c;
-    border-radius: 16px;
+    border-radius: 10px;
     box-shadow: 0 8px 24px #4d091922;
 }
 
@@ -1706,7 +1723,8 @@ footer {
     padding: 32px;
     background: white;
     border: 1px solid #ead8c2;
-    border-radius: 16px;
+    border-left: 5px solid #f2c94c;
+    border-radius: 10px;
     box-shadow: 0 8px 24px #32182012;
 }
 
@@ -1728,6 +1746,10 @@ footer {
     font-size: 30px;
 }
 
+.reward-details {
+    min-width: 0;
+}
+
 .reward-details > p:not(.rewards-eyebrow):not(.reward-cost):not(.redeem-message) {
     margin: 0;
     color: #5c4045;
@@ -1738,6 +1760,24 @@ footer {
     margin-top: 14px !important;
     color: #176244 !important;
     font-weight: bold;
+}
+
+.reward-status {
+    display: inline-flex;
+    max-width: 100%;
+    margin: 12px 0 0 !important;
+    padding: 7px 11px;
+    color: #176244 !important;
+    background: #e8f3ec;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: bold;
+    line-height: 1.4;
+}
+
+.reward-status.is-redeemed {
+    color: #5c4045 !important;
+    background: #f0e9e5;
 }
 
 .reward-cost {
@@ -1779,7 +1819,7 @@ footer {
 
     .roulette-play {
         display: grid;
-        grid-template-columns: minmax(220px, 300px) minmax(0, 1fr);
+        grid-template-columns: minmax(220px, 340px) minmax(0, 1fr);
         justify-items: center;
     }
 
@@ -1882,16 +1922,16 @@ footer {
     }
 
     .logo {
-        gap: 8px;
+        margin-right: 0;
     }
 
     .logo img {
-        width: 48px;
-        height: 48px;
+        width: 118px;
+        height: 52px;
     }
 
-    .logo h2 {
-        font-size: 18px;
+    .logo-name {
+        font-size: 23px;
     }
 
     .login-container {
@@ -2191,6 +2231,10 @@ footer {
         padding: 22px;
     }
 
+    .reward-card .reward-details {
+        width: 100%;
+    }
+
     .reward-icon {
         width: 100px;
         height: 100px;
@@ -2233,13 +2277,13 @@ footer {
 
     .roulette-wheel {
         grid-row: auto;
-        width: 220px;
-        height: 220px;
+        width: 260px;
+        height: 260px;
         margin: 0 auto;
     }
 
     .roulette-wheel-ring {
-        --wheel-radius: 96px;
+        --wheel-radius: 114px;
     }
 
     .blackjack-heading h2 {

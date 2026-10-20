@@ -1,4 +1,71 @@
-let carrito = [];
+function limpiarCuentasGuardadasUnaVez() {
+    let marcaReinicio = "chichacookAccountsReset3000";
+    try {
+        if (localStorage.getItem(marcaReinicio) === "completado") return;
+        localStorage.removeItem("chichacookUsers");
+        localStorage.removeItem("chichacookUser");
+        localStorage.setItem(marcaReinicio, "completado");
+
+        let clavesSesion = [];
+        for (let indice = 0; indice < sessionStorage.length; indice++) {
+            let clave = sessionStorage.key(indice);
+            if (clave === "chichacookSession" || clave === "chichacookUsersSession" ||
+                clave.indexOf("chichacookBlackjack:") === 0 ||
+                clave.indexOf("chichacookRouletteBets:") === 0 ||
+                clave.indexOf("chichacookRouletteRound:") === 0) {
+                clavesSesion.push(clave);
+            }
+        }
+        clavesSesion.forEach(function(clave) {
+            sessionStorage.removeItem(clave);
+        });
+    } catch (error) {
+    }
+}
+
+limpiarCuentasGuardadasUnaVez();
+
+function cargarCarrito() {
+    try {
+        let guardado = JSON.parse(sessionStorage.getItem("chichacookCart") || "[]");
+        if (!Array.isArray(guardado)) return [];
+        let opcionesToppingValidas = ["Ninguno", "Oreo", "M&M", "Chispas de chocolate"];
+        return guardado.filter(function(producto) {
+            if (!producto || producto.nombre !== "Chicha venezolana" || typeof producto.toppings !== "string") {
+                return false;
+            }
+            let toppings = producto.toppings.split(", ");
+            return toppings.length === 2 && toppings.every(function(topping) {
+                return opcionesToppingValidas.includes(topping);
+            }) && opcionesToppingValidas.includes(producto.extra) &&
+                producto.precio === (producto.extra === "Ninguno" ? 1200 : 1400);
+        }).map(function(producto) {
+            return {
+                nombre: producto.nombre,
+                toppings: producto.toppings,
+                extra: producto.extra,
+                precio: producto.precio
+            };
+        });
+    } catch (error) {
+        return [];
+    }
+}
+
+function guardarCarrito() {
+    try {
+        if (carrito.length) {
+            sessionStorage.setItem("chichacookCart", JSON.stringify(carrito));
+        } else {
+            sessionStorage.removeItem("chichacookCart");
+        }
+        return true;
+    } catch (error) {
+        return false;
+    }
+}
+
+let carrito = cargarCarrito();
 let productoEditando = null;
 let temporizadorResultadoJuego = null;
 let temporizadorConfetiJuego = null;
@@ -82,6 +149,21 @@ function agregar() {
     let topping2 = document.getElementById("topping2").value;
     let extra = document.getElementById("extra").value;
 
+    if (!obtenerCuentaSesion()) {
+        try {
+            sessionStorage.setItem("chichacookPendingProduct", JSON.stringify({ topping1, topping2, extra }));
+            sessionStorage.setItem("chichacookContinueAfterLogin", "services-add-product");
+        } catch (error) {
+            sessionStorage.removeItem("chichacookPendingProduct");
+            sessionStorage.removeItem("chichacookContinueAfterLogin");
+            alert("Inicia sesión para agregar una chicha al carrito.");
+            return;
+        }
+        alert("Para agregar una chicha al carrito debes iniciar sesión.");
+        window.location.href = "login.html";
+        return;
+    }
+
     let precio = 1200;
 
     if (extra != "Ninguno") {
@@ -96,6 +178,7 @@ function agregar() {
     };
 
     carrito.push(producto);
+    guardarCarrito();
     actualizarCantidad();
 
     let caja = document.getElementById("carrito");
@@ -131,9 +214,18 @@ function renderizarCarrito() {
         texto += "<p>El carrito está vacío.</p>";
     } else {
         let total = 0;
+        let cuentaRecompensa = obtenerCuentaSesion();
+        let indiceToppingGratis = cuentaRecompensa && cuentaRecompensa.toppingGratisDisponible
+            ? carrito.findIndex(function(producto) { return producto.extra !== "Ninguno"; })
+            : -1;
+        if (cuentaRecompensa && cuentaRecompensa.toppingGratisDisponible && indiceToppingGratis < 0) {
+            texto += "<p>Tienes un topping extra gratis disponible. Elige un extra en una chicha para aplicarlo.</p>";
+        }
 
         for (let i = 0; i < carrito.length; i++) {
             let producto = carrito[i];
+            let toppingGratis = i === indiceToppingGratis;
+            let precioProducto = producto.precio - (toppingGratis ? 200 : 0);
             texto += "<div class='cart-item'><strong>" + producto.nombre + "</strong>";
 
             if (productoEditando === i) {
@@ -151,8 +243,8 @@ function renderizarCarrito() {
             } else {
                 texto +=
                     "<p>Toppings: " + producto.toppings +
-                    "<br>Extra: " + producto.extra +
-                    "<br>Precio: $" + producto.precio.toLocaleString("es-CL") + "</p>" +
+                    "<br>Extra: " + producto.extra + (toppingGratis ? " (gratis por recompensa)" : "") +
+                    "<br>Precio: $" + precioProducto.toLocaleString("es-CL") + "</p>" +
                     "<div class='cart-actions'>" +
                     "<button class='boton' onclick='editarProducto(" + i + ")'>Editar</button>" +
                     "<button class='boton' onclick='eliminarProducto(" + i + ")'>Eliminar</button></div>";
@@ -160,7 +252,7 @@ function renderizarCarrito() {
 
             texto += "</div>";
 
-            total += producto.precio;
+            total += precioProducto;
         }
 
         texto +=
@@ -169,6 +261,12 @@ function renderizarCarrito() {
             "</h3>";
 
         texto +=
+            "<label for='metodo-pago'>Método de pago</label>" +
+            "<select id='metodo-pago' aria-label='Método de pago'>" +
+            "<option value=''>Selecciona una opción</option>" +
+            "<option value='efectivo'>Efectivo</option>" +
+            "<option value='tarjeta'>Tarjeta</option>" +
+            "</select>" +
             "<button class='boton' onclick='comprar()'>Comprar</button>";
     }
 
@@ -193,21 +291,64 @@ function guardarEdicion(indice) {
     carrito[indice].toppings = topping1 + ", " + topping2;
     carrito[indice].extra = extra;
     carrito[indice].precio = extra === "Ninguno" ? 1200 : 1400;
+    guardarCarrito();
     productoEditando = null;
     renderizarCarrito();
 }
 
 function eliminarProducto(indice) {
     carrito.splice(indice, 1);
+    guardarCarrito();
     productoEditando = null;
     actualizarCantidad();
     renderizarCarrito();
 }
 
 function comprar() {
-    alert("¡Pedido realizado correctamente!");
+    if (!obtenerCuentaSesion()) {
+        if (!carrito.length) {
+            alert("Agrega una chicha al carrito antes de comprar.");
+            return;
+        }
+        if (!guardarCarrito()) {
+            alert("No se pudo guardar tu carrito. Inténtalo de nuevo antes de iniciar sesión.");
+            return;
+        }
+        sessionStorage.setItem("chichacookContinueAfterLogin", "services-cart");
+        alert("Para completar la compra debes iniciar sesión. Conservamos tu carrito.");
+        window.location.href = "login.html";
+        return;
+    }
+
+    let metodoPago = document.getElementById("metodo-pago");
+    if (!metodoPago || !metodoPago.value) {
+        alert("Selecciona efectivo o tarjeta para continuar con la compra.");
+        if (metodoPago) metodoPago.focus();
+        return;
+    }
+
+    let cuentasCompra = obtenerCuentas();
+    let usuarioSesion = sessionStorage.getItem("chichacookSession");
+    let cuentaCompra = cuentasCompra.find(function(cuenta) {
+        return normalizarIdentificador(cuenta.username) === normalizarIdentificador(usuarioSesion);
+    });
+    let indiceToppingGratis = cuentaCompra && cuentaCompra.toppingGratisDisponible
+        ? carrito.findIndex(function(producto) { return producto.extra !== "Ninguno"; })
+        : -1;
+    let totalCompra = carrito.reduce(function(total, producto, indice) {
+        return total + producto.precio - (indice === indiceToppingGratis ? 200 : 0);
+    }, 0);
+    let pagoConfirmado = metodoPago.value === "efectivo" ? "efectivo" : "tarjeta";
+    alert("¡Pedido realizado correctamente! Total: $" + totalCompra.toLocaleString("es-CL") +
+        ". Método de pago: " + pagoConfirmado + ".");
+
+    if (indiceToppingGratis >= 0 && cuentaCompra) {
+        cuentaCompra.toppingGratisDisponible = false;
+        guardarCuentas(cuentasCompra);
+    }
 
     carrito = [];
+    guardarCarrito();
     productoEditando = null;
 
     actualizarCantidad();
@@ -313,7 +454,7 @@ function cambiarPuntosSesion(cambio) {
     if (!Number.isSafeInteger(nuevoSaldo) || nuevoSaldo < 0) return null;
     cuenta.puntos = nuevoSaldo;
     guardarCuentas(cuentas);
-    document.querySelectorAll("#blackjack-points, #roulette-points, #reward-points").forEach(function(elemento) {
+    document.querySelectorAll("#blackjack-points, #roulette-points, #reward-points, #topping-reward-points").forEach(function(elemento) {
         elemento.textContent = cuenta.puntos.toLocaleString("es-CL");
     });
     document.querySelectorAll(".session-points").forEach(function(elemento) {
@@ -386,6 +527,74 @@ function iniciarBlackjack() {
     let apuestaLiquidada = false;
     let repartiendo = false;
     let numeroPartida = 0;
+    let faseJuego = "idle";
+    let indiceReparto = 0;
+    let usuarioPartida = sessionStorage.getItem("chichacookSession");
+    let clavePartida = usuarioPartida
+        ? "chichacookBlackjack:" + normalizarIdentificador(usuarioPartida)
+        : null;
+
+    function guardarPartidaBlackjack() {
+        if (!clavePartida) return false;
+        try {
+            if (apuestaActual <= 0 || apuestaLiquidada) {
+                sessionStorage.removeItem(clavePartida);
+                return true;
+            }
+            sessionStorage.setItem(clavePartida, JSON.stringify({
+                mazo,
+                manoJugador,
+                manoCasa,
+                apuestaActual,
+                victorias,
+                derrotas,
+                faseJuego,
+                indiceReparto
+            }));
+            return true;
+        } catch (error) {
+            return false;
+        }
+    }
+
+    function leerPartidaBlackjack() {
+        if (!clavePartida) return null;
+        try {
+            let partida = JSON.parse(sessionStorage.getItem(clavePartida) || "null");
+            let cartaValida = function(carta) {
+                return carta && valores.includes(carta.valor) && carta.palo &&
+                    palos.some(function(palo) {
+                        return palo.simbolo === carta.palo.simbolo && palo.nombre === carta.palo.nombre &&
+                            palo.rojo === carta.palo.rojo;
+                    });
+            };
+            if (!partida || !Array.isArray(partida.mazo) || !partida.mazo.every(cartaValida) ||
+                !Array.isArray(partida.manoJugador) || !partida.manoJugador.every(cartaValida) ||
+                !Array.isArray(partida.manoCasa) || !partida.manoCasa.every(cartaValida) ||
+                !Number.isSafeInteger(partida.apuestaActual) || partida.apuestaActual <= 0 ||
+                !Number.isSafeInteger(partida.victorias) || !Number.isSafeInteger(partida.derrotas) ||
+                !["initial-deal", "player", "dealer"].includes(partida.faseJuego) ||
+                !Number.isInteger(partida.indiceReparto) || partida.indiceReparto < 0 || partida.indiceReparto > 4) {
+                sessionStorage.removeItem(clavePartida);
+                return null;
+            }
+            return partida;
+        } catch (error) {
+            try {
+                sessionStorage.removeItem(clavePartida);
+            } catch (errorAlmacenamiento) {
+            }
+            return null;
+        }
+    }
+
+    function borrarPartidaBlackjack() {
+        if (!clavePartida) return;
+        try {
+            sessionStorage.removeItem(clavePartida);
+        } catch (error) {
+        }
+    }
 
     function barajarMazo() {
         mazo = [];
@@ -492,6 +701,107 @@ function iniciarBlackjack() {
             : "Inicia sesión";
         document.getElementById("blackjack-wins").textContent = victorias;
         document.getElementById("blackjack-losses").textContent = derrotas;
+        guardarPartidaBlackjack();
+    }
+
+    function obtenerRepartoInicial() {
+        return [
+            { mano: manoJugador, tablero: cartasJugador, oculta: false },
+            { mano: manoCasa, tablero: cartasCasa, oculta: false },
+            { mano: manoJugador, tablero: cartasJugador, oculta: false },
+            { mano: manoCasa, tablero: cartasCasa, oculta: true }
+        ];
+    }
+
+    function finalizarRepartoInicial() {
+        repartiendo = false;
+        partidaActiva = true;
+        faseJuego = "player";
+        let blackjackJugador = calcularPuntos(manoJugador) === 21;
+        let blackjackCasa = calcularPuntos(manoCasa) === 21;
+        if (blackjackJugador || blackjackCasa) {
+            partidaActiva = false;
+            actualizarMesa(true);
+            if (blackjackJugador && blackjackCasa) {
+                liquidarApuesta("tie");
+                mostrarResultadoJuego("tie", 0);
+                mostrarMensaje("¡Blackjack para ambos! Empate; se devuelve tu apuesta.", "tie");
+            } else if (blackjackJugador) {
+                victorias++;
+                liquidarApuesta("win");
+                mostrarResultadoJuego("win", apuestaActual);
+                mostrarMensaje("¡Blackjack! Ganaste y recibes " +
+                    (apuestaActual * 2).toLocaleString("es-CL") + " puntos.", "win");
+            } else {
+                derrotas++;
+                liquidarApuesta("loss");
+                mostrarResultadoJuego("loss", apuestaActual);
+                mostrarMensaje("La casa tiene blackjack. Pierdes " +
+                    apuestaActual.toLocaleString("es-CL") + " puntos.", "loss");
+            }
+        } else {
+            mostrarMensaje("Tu turno: pide una carta o plántate.", "");
+        }
+        actualizarMesa(!partidaActiva);
+    }
+
+    async function repartirManoInicial(partida, desdeIndice) {
+        let reparto = obtenerRepartoInicial();
+        for (let indice = desdeIndice; indice < reparto.length; indice++) {
+            await esperar(360);
+            if (partida !== numeroPartida) return;
+            let turno = reparto[indice];
+            let carta = tomarCarta();
+            turno.mano.push(carta);
+            indiceReparto = indice + 1;
+            agregarCarta(turno.tablero, carta, turno.oculta);
+            actualizarMesa(false);
+        }
+        finalizarRepartoInicial();
+    }
+
+    function restaurarPartidaBlackjack() {
+        let partidaGuardada = leerPartidaBlackjack();
+        if (!partidaGuardada) return false;
+
+        mazo = partidaGuardada.mazo;
+        manoJugador = partidaGuardada.manoJugador;
+        manoCasa = partidaGuardada.manoCasa;
+        apuestaActual = partidaGuardada.apuestaActual;
+        apuestaLiquidada = false;
+        victorias = partidaGuardada.victorias;
+        derrotas = partidaGuardada.derrotas;
+        faseJuego = partidaGuardada.faseJuego;
+        indiceReparto = partidaGuardada.indiceReparto;
+        numeroPartida++;
+        partidaActiva = false;
+        repartiendo = false;
+        apuestaInput.value = String(apuestaActual);
+        cartasJugador.replaceChildren();
+        cartasCasa.replaceChildren();
+        actualizarMesa(faseJuego === "dealer");
+
+        if (faseJuego === "initial-deal") {
+            let reparto = obtenerRepartoInicial();
+            while (indiceReparto < reparto.length) {
+                let turno = reparto[indiceReparto];
+                turno.mano.push(tomarCarta());
+                indiceReparto++;
+            }
+            finalizarRepartoInicial();
+        } else if (faseJuego === "dealer") {
+            partidaActiva = true;
+            terminarMano();
+        } else {
+            partidaActiva = true;
+            if (calcularPuntos(manoJugador) >= 21) {
+                terminarMano();
+            } else {
+                mostrarMensaje("Partida recuperada. Tu turno: pide una carta o plántate.", "");
+                actualizarMesa(false);
+            }
+        }
+        return true;
     }
 
     function liquidarApuesta(resultado) {
@@ -500,6 +810,7 @@ function iniciarBlackjack() {
 
         let devolucion = resultado === "win" ? apuestaActual * 2 : resultado === "tie" ? apuestaActual : 0;
         if (devolucion > 0) cambiarPuntosSesion(devolucion);
+        borrarPartidaBlackjack();
     }
 
     function mostrarMensaje(texto, resultado) {
@@ -514,6 +825,7 @@ function iniciarBlackjack() {
         if (!partidaActiva || repartiendo) return;
         partidaActiva = false;
         repartiendo = true;
+        faseJuego = "dealer";
         actualizarMesa(true);
         mostrarMensaje("La casa revela su carta...", "");
         await esperar(450);
@@ -599,59 +911,28 @@ function iniciarBlackjack() {
         apuestaLiquidada = false;
         repartiendo = true;
         partidaActiva = false;
+        faseJuego = "initial-deal";
+        indiceReparto = 0;
         barajarMazo();
         manoJugador = [];
         manoCasa = [];
         cartasJugador.replaceChildren();
         cartasCasa.replaceChildren();
         actualizarMesa(false);
+        if (!guardarPartidaBlackjack()) {
+            cambiarPuntosSesion(cantidadApuesta);
+            apuestaLiquidada = true;
+            repartiendo = false;
+            faseJuego = "idle";
+            borrarPartidaBlackjack();
+            actualizarMesa(false);
+            mostrarMensaje("No se pudo guardar la partida. Se devolvió tu apuesta; inténtalo de nuevo.", "loss");
+            return;
+        }
         mostrarMensaje("Apuesta de " + apuestaActual.toLocaleString("es-CL") +
             " puntos realizada. Barajando y repartiendo...", "");
 
-        let reparto = [
-            { mano: manoJugador, tablero: cartasJugador, oculta: false },
-            { mano: manoCasa, tablero: cartasCasa, oculta: false },
-            { mano: manoJugador, tablero: cartasJugador, oculta: false },
-            { mano: manoCasa, tablero: cartasCasa, oculta: true }
-        ];
-        for (let indice = 0; indice < reparto.length; indice++) {
-            await esperar(360);
-            if (partida !== numeroPartida) return;
-            let turno = reparto[indice];
-            let carta = tomarCarta();
-            turno.mano.push(carta);
-            agregarCarta(turno.tablero, carta, turno.oculta);
-            actualizarMesa(false);
-        }
-
-        repartiendo = false;
-        partidaActiva = true;
-        let blackjackJugador = calcularPuntos(manoJugador) === 21;
-        let blackjackCasa = calcularPuntos(manoCasa) === 21;
-        if (blackjackJugador || blackjackCasa) {
-            partidaActiva = false;
-            actualizarMesa(true);
-            if (blackjackJugador && blackjackCasa) {
-                liquidarApuesta("tie");
-                mostrarResultadoJuego("tie", 0);
-                mostrarMensaje("¡Blackjack para ambos! Empate; se devuelve tu apuesta.", "tie");
-            } else if (blackjackJugador) {
-                victorias++;
-                liquidarApuesta("win");
-                mostrarResultadoJuego("win", apuestaActual);
-                mostrarMensaje("¡Blackjack! Ganaste y recibes " +
-                    (apuestaActual * 2).toLocaleString("es-CL") + " puntos.", "win");
-            } else {
-                derrotas++;
-                liquidarApuesta("loss");
-                mostrarResultadoJuego("loss", apuestaActual);
-                mostrarMensaje("La casa tiene blackjack. Pierdes " +
-                    apuestaActual.toLocaleString("es-CL") + " puntos.", "loss");
-            }
-        } else {
-            mostrarMensaje("Tu turno: pide una carta o plántate.", "");
-        }
-        actualizarMesa(!partidaActiva);
+        await repartirManoInicial(partida, 0);
     }
 
     botonPedir.addEventListener("click", function() {
@@ -660,6 +941,7 @@ function iniciarBlackjack() {
         partidaActiva = false;
         let carta = tomarCarta();
         manoJugador.push(carta);
+        faseJuego = "player";
         actualizarMesa(false);
         mostrarMensaje("¡Carta repartida! " + carta.valor + carta.palo.simbolo + " para ti.", "");
 
@@ -682,8 +964,10 @@ function iniciarBlackjack() {
     });
 
     botonNueva.addEventListener("click", nuevaPartida);
-    actualizarMesa(false);
-    mostrarMensaje("Elige tu apuesta y pulsa «Nueva partida» para repartir.", "");
+    if (!restaurarPartidaBlackjack()) {
+        actualizarMesa(false);
+        mostrarMensaje("Elige tu apuesta y pulsa «Nueva partida» para repartir.", "");
+    }
 }
 
 function iniciarRuleta() {
@@ -721,6 +1005,13 @@ function iniciarRuleta() {
     let finCuentaAtras = 0;
     let audioContext = null;
     let sonidoActivo = false;
+    let usuarioApuestas = sessionStorage.getItem("chichacookSession");
+    let claveApuestasPendientes = usuarioApuestas
+        ? "chichacookRouletteBets:" + normalizarIdentificador(usuarioApuestas)
+        : null;
+    let claveGiroRuleta = usuarioApuestas
+        ? "chichacookRouletteRound:" + normalizarIdentificador(usuarioApuestas)
+        : null;
 
     function colorNumero(numero) {
         if (numero === "0" || numero === "00") return "green";
@@ -843,10 +1134,209 @@ function iniciarRuleta() {
         apuestaInput.max = String(saldo);
     }
 
+    function finalizarGiroRuleta(giro, recuperado) {
+        let numero = String(giro.numero);
+        let indiceResultado = ordenRuleta.indexOf(numero);
+        if (indiceResultado < 0) return;
+        let apuestasDelGiro = giro.apuestas;
+        let cantidadApuesta = giro.cantidadApuesta;
+        let color = colorNumero(numero);
+        let apuestasGanadoras = apuestasDelGiro.filter(function(apuesta) {
+            return numeroIncluido(numero, apuesta.tipo, apuesta.numero);
+        });
+        let premio = apuestasGanadoras.reduce(function(total, apuesta) {
+            return total + apuesta.importe * multiplicadorApuesta(apuesta.tipo);
+        }, 0);
+        let importeGanador = apuestasGanadoras.reduce(function(total, apuesta) {
+            return total + apuesta.importe;
+        }, 0);
+        let gradosPorCasilla = 360 / ordenRuleta.length;
+        let anguloCentroResultado = indiceResultado * gradosPorCasilla + gradosPorCasilla / 2;
+
+        resultadoElemento.textContent = numero;
+        let ruedaAlineada = -anguloCentroResultado;
+        aroRuleta.style.transform = "rotate(" + ruedaAlineada + "deg)";
+        etiquetasRueda.forEach(function(etiqueta) {
+            etiqueta.style.transform = "rotate(" + -ruedaAlineada + "deg)";
+        });
+        aroRuleta.classList.remove("is-idle");
+        pistaPelota.classList.remove("is-spinning");
+        pistaPelota.classList.add("is-revealed", "is-landed");
+        pistaPelota.style.transform = "rotate(0deg)";
+        rueda.setAttribute("aria-label", "Ruleta americana: salió " + numero + " " + color);
+
+        if (premio > 0) {
+            let saldo = cambiarPuntosSesion(premio);
+            if (saldo === null) {
+                mostrarResultadoJuego("loss", cantidadApuesta);
+                mostrarMensaje("Salió " + numero + " " + color + ". No se pudo abonar el premio.", "loss");
+            } else {
+                let gananciaNeta = premio - cantidadApuesta;
+                let resultadoNeto = gananciaNeta > 0
+                    ? "win"
+                    : gananciaNeta < 0
+                        ? "loss"
+                        : "tie";
+                if (gananciaNeta > 0) {
+                    mostrarResultadoJuego("win", gananciaNeta);
+                } else if (gananciaNeta < 0) {
+                    mostrarResultadoJuego("loss", Math.abs(gananciaNeta));
+                } else {
+                    mostrarResultadoJuego("tie", 0);
+                }
+                mostrarMensaje((recuperado ? "Giro recuperado. " : "") + "Salió " + numero + " " + color +
+                    ": premio total " + premio.toLocaleString("es-CL") +
+                    " puntos (incluye " + importeGanador.toLocaleString("es-CL") +
+                    " de apuestas devueltas; ganancia neta " + gananciaNeta.toLocaleString("es-CL") + ").", "win");
+                mensaje.classList.remove("is-win", "is-loss");
+                if (resultadoNeto !== "tie") mensaje.classList.add("is-" + resultadoNeto);
+            }
+        } else {
+            mostrarResultadoJuego("loss", cantidadApuesta);
+            mostrarMensaje((recuperado ? "Giro recuperado. " : "") + "Salió " + numero + " " + color +
+                ". No hubo premio; perdiste " + cantidadApuesta.toLocaleString("es-CL") + " puntos.", "loss");
+        }
+
+        apuestasPendientes = [];
+        guardarApuestasPendientes();
+        borrarGiroRuleta();
+        girando = false;
+        cambiarEstadoControles(false);
+        actualizarApuestas();
+        actualizarSaldo();
+        cancelarCuentaAtras();
+    }
+
     function totalApostado() {
         return apuestasPendientes.reduce(function(total, apuesta) {
             return total + apuesta.importe;
         }, 0);
+    }
+
+    function guardarApuestasPendientes() {
+        if (!claveApuestasPendientes) return;
+        try {
+            if (apuestasPendientes.length) {
+                sessionStorage.setItem(claveApuestasPendientes, JSON.stringify(apuestasPendientes));
+            } else {
+                sessionStorage.removeItem(claveApuestasPendientes);
+            }
+        } catch (error) {
+        }
+    }
+
+    function borrarApuestasPendientesGuardadas() {
+        if (!claveApuestasPendientes) return true;
+        try {
+            sessionStorage.removeItem(claveApuestasPendientes);
+            return sessionStorage.getItem(claveApuestasPendientes) === null;
+        } catch (error) {
+            return false;
+        }
+    }
+
+    function guardarGiroRuleta(giro) {
+        if (!claveGiroRuleta) return false;
+        try {
+            sessionStorage.setItem(claveGiroRuleta, JSON.stringify(giro));
+            return true;
+        } catch (error) {
+            return false;
+        }
+    }
+
+    function leerGiroRuleta() {
+        if (!claveGiroRuleta) return null;
+        try {
+            let giro = JSON.parse(sessionStorage.getItem(claveGiroRuleta) || "null");
+            let tiposApuestaValidos = [
+                "red", "black", "even", "odd", "low", "high",
+                "dozen-1", "dozen-2", "dozen-3", "column-1", "column-2", "column-3"
+            ];
+            if (!giro || !ordenRuleta.includes(String(giro.numero)) || !Array.isArray(giro.apuestas) ||
+                !giro.apuestas.length || giro.apuestas.some(function(apuesta) {
+                    return !apuesta || !Number.isSafeInteger(apuesta.importe) || apuesta.importe <= 0 ||
+                        (apuesta.tipo === "number"
+                            ? !ordenRuleta.includes(String(apuesta.numero))
+                            : !tiposApuestaValidos.includes(apuesta.tipo));
+                })) {
+                sessionStorage.removeItem(claveGiroRuleta);
+                return null;
+            }
+            let cantidadApuesta = giro.apuestas.reduce(function(total, apuesta) {
+                return total + apuesta.importe;
+            }, 0);
+            let premioMaximo = giro.apuestas.reduce(function(total, apuesta) {
+                return total + apuesta.importe * multiplicadorApuesta(apuesta.tipo);
+            }, 0);
+            if (!Number.isSafeInteger(cantidadApuesta) || !Number.isSafeInteger(premioMaximo)) {
+                sessionStorage.removeItem(claveGiroRuleta);
+                return null;
+            }
+            return {
+                numero: String(giro.numero),
+                apuestas: giro.apuestas.map(function(apuesta) {
+                    return {
+                        tipo: apuesta.tipo,
+                        numero: apuesta.tipo === "number" ? String(apuesta.numero) : "0",
+                        importe: apuesta.importe
+                    };
+                }),
+                cantidadApuesta
+            };
+        } catch (error) {
+            try {
+                sessionStorage.removeItem(claveGiroRuleta);
+            } catch (errorAlmacenamiento) {
+            }
+            return null;
+        }
+    }
+
+    function borrarGiroRuleta() {
+        if (!claveGiroRuleta) return;
+        try {
+            sessionStorage.removeItem(claveGiroRuleta);
+        } catch (error) {
+        }
+    }
+
+    function restaurarApuestasPendientes() {
+        if (!claveApuestasPendientes) return;
+        try {
+            let guardadas = JSON.parse(sessionStorage.getItem(claveApuestasPendientes) || "[]");
+            if (!Array.isArray(guardadas)) throw new Error("Formato de apuestas no válido");
+
+            let tiposApuestaValidos = [
+                "red", "black", "even", "odd", "low", "high",
+                "dozen-1", "dozen-2", "dozen-3", "column-1", "column-2", "column-3"
+            ];
+            apuestasPendientes = guardadas.filter(function(apuesta) {
+                if (!apuesta || typeof apuesta !== "object" ||
+                    !Number.isSafeInteger(apuesta.importe) || apuesta.importe <= 0) return false;
+                if (apuesta.tipo === "number") return ordenRuleta.includes(String(apuesta.numero));
+                return tiposApuestaValidos.includes(apuesta.tipo);
+            }).map(function(apuesta) {
+                return {
+                    tipo: apuesta.tipo,
+                    numero: apuesta.tipo === "number" ? String(apuesta.numero) : "0",
+                    importe: apuesta.importe
+                };
+            });
+
+            let cuenta = obtenerCuentaSesion();
+            let total = totalApostado();
+            if (!cuenta || !Number.isSafeInteger(total) || total > puntosCuenta(cuenta)) {
+                apuestasPendientes = [];
+            }
+            guardarApuestasPendientes();
+        } catch (error) {
+            apuestasPendientes = [];
+            try {
+                sessionStorage.removeItem(claveApuestasPendientes);
+            } catch (errorAlmacenamiento) {
+            }
+        }
     }
 
     function descripcionApuesta(apuesta) {
@@ -861,6 +1351,7 @@ function iniciarRuleta() {
     }
 
     function actualizarApuestas() {
+        guardarApuestasPendientes();
         listaApuestas.replaceChildren();
         let apuestasPorPosicion = new Map();
         document.querySelectorAll(".roulette-number, .roulette-bet-choice").forEach(function(boton) {
@@ -974,7 +1465,7 @@ function iniciarRuleta() {
             let fin = (indice + 1) * gradosPorCasilla;
             let color = colorNumero(numero);
             let colorSector = color === "red" ? "#c51f35" : color === "green" ? "#16844f" : "#202020";
-            let finSector = fin - .35;
+            let finSector = fin - 1.5;
             sectores.push(colorSector + " " + inicio + "deg " + finSector + "deg");
             sectores.push("#f2c94c " + finSector + "deg " + fin + "deg");
 
@@ -997,13 +1488,6 @@ function iniciarRuleta() {
 
     function anguloActualRueda() {
         let transformacion = window.getComputedStyle(aroRuleta).transform;
-        if (transformacion === "none") return 0;
-        let matriz = new DOMMatrixReadOnly(transformacion);
-        return (Math.atan2(matriz.b, matriz.a) * 180 / Math.PI + 360) % 360;
-    }
-
-    function anguloActualBola() {
-        let transformacion = window.getComputedStyle(pistaPelota).transform;
         if (transformacion === "none") return 0;
         let matriz = new DOMMatrixReadOnly(transformacion);
         return (Math.atan2(matriz.b, matriz.a) * 180 / Math.PI + 360) % 360;
@@ -1166,9 +1650,31 @@ function iniciarRuleta() {
             cancelarCuentaAtras();
             return;
         }
+        let gradosPorCasilla = 360 / ordenRuleta.length;
+        let resultado = Math.floor(Math.random() * ordenRuleta.length);
+        let anguloCentroResultado = resultado * gradosPorCasilla + gradosPorCasilla / 2;
+        let anguloInicioPelota = Math.floor(Math.random() * 360);
+        let vueltasBola = 2 + Math.floor(Math.random() * 4);
+        let duracionGiroPelota = 6500 + vueltasBola * 700 + Math.floor(Math.random() * 1300);
+        let anguloFinalPelota = -vueltasBola * 360;
+        let giroGuardado = {
+            numero: ordenRuleta[resultado],
+            apuestas: apuestasDelGiro,
+            cantidadApuesta
+        };
+        if (!guardarGiroRuleta(giroGuardado)) {
+            mostrarMensaje("No se pudo guardar el giro. La apuesta sigue preparada y no se descontó saldo.", "loss");
+            return;
+        }
+        if (!borrarApuestasPendientesGuardadas()) {
+            borrarGiroRuleta();
+            mostrarMensaje("No se pudo asegurar el giro. La apuesta sigue preparada y no se descontó saldo.", "loss");
+            return;
+        }
         if (cambiarPuntosSesion(-cantidadApuesta) === null) {
             mostrarMensaje("No se pudo registrar la apuesta. Vuelve a iniciar sesión.", "loss");
-            apuestasPendientes = [];
+            borrarGiroRuleta();
+            guardarApuestasPendientes();
             actualizarApuestas();
             actualizarSaldo();
             cancelarCuentaAtras();
@@ -1177,12 +1683,6 @@ function iniciarRuleta() {
 
         girando = true;
         cambiarEstadoControles(true);
-        let gradosPorCasilla = 360 / ordenRuleta.length;
-        let anguloInicioPelota = Math.floor(Math.random() * 360);
-        let vueltasBola = 2 + Math.floor(Math.random() * 4);
-        let duracionGiroPelota = 6500 + vueltasBola * 700 + Math.floor(Math.random() * 1300);
-        let recorridoExtra = Math.random() * 360;
-        let anguloFinalPelota = anguloInicioPelota - vueltasBola * 360 - recorridoExtra;
         resultadoElemento.textContent = "?";
         pistaPelota.classList.remove("is-revealed", "is-spinning", "is-landed");
         pistaPelota.style.setProperty("--ball-start-angle", anguloInicioPelota + "deg");
@@ -1198,78 +1698,24 @@ function iniciarRuleta() {
 
         window.setTimeout(function() {
             sonidoActivo = false;
-            let anguloFinalBola = anguloActualBola();
-            let anguloBolsillo = (anguloFinalBola % 360 + 360) % 360;
-            let resultado = Math.min(
-                ordenRuleta.length - 1,
-                Math.floor(anguloBolsillo / gradosPorCasilla)
-            );
-            let numero = ordenRuleta[resultado];
-            let color = colorNumero(numero);
-            let apuestasGanadoras = apuestasDelGiro.filter(function(apuesta) {
-                return numeroIncluido(numero, apuesta.tipo, apuesta.numero);
-            });
-            let premio = apuestasGanadoras.reduce(function(total, apuesta) {
-                return total + apuesta.importe * multiplicadorApuesta(apuesta.tipo);
-            }, 0);
-            let importeGanador = apuestasGanadoras.reduce(function(total, apuesta) {
-                return total + apuesta.importe;
-            }, 0);
-
-            resultadoElemento.textContent = numero;
-            let ruedaAlineada = -anguloFinalBola;
-            aroRuleta.style.transform = "rotate(" + ruedaAlineada + "deg)";
-            etiquetasRueda.forEach(function(etiqueta) {
-                etiqueta.style.transform = "rotate(" + -ruedaAlineada + "deg)";
-            });
-            aroRuleta.classList.remove("is-idle");
-            pistaPelota.classList.remove("is-spinning");
-            pistaPelota.classList.add("is-landed");
-            pistaPelota.style.transform = "rotate(" + anguloFinalBola + "deg)";
-            rueda.setAttribute("aria-label", "Ruleta americana: salió " + numero + " " + color);
-            if (premio > 0) {
-                let saldo = cambiarPuntosSesion(premio);
-                if (saldo === null) {
-                    mostrarResultadoJuego("loss", cantidadApuesta);
-                    mostrarMensaje("Salió " + numero + " " + color + ". No se pudo abonar el premio.", "loss");
-                } else {
-                    let gananciaNeta = premio - cantidadApuesta;
-                    let resultadoNeto = gananciaNeta > 0
-                        ? "win"
-                        : gananciaNeta < 0
-                            ? "loss"
-                            : "tie";
-                    if (gananciaNeta > 0) {
-                        mostrarResultadoJuego("win", gananciaNeta);
-                    } else if (gananciaNeta < 0) {
-                        mostrarResultadoJuego("loss", Math.abs(gananciaNeta));
-                    } else {
-                        mostrarResultadoJuego("tie", 0);
-                    }
-                    mostrarMensaje("Salió " + numero + " " + color + ": premio total " +
-                        premio.toLocaleString("es-CL") + " puntos (incluye " +
-                        importeGanador.toLocaleString("es-CL") + " de apuestas devueltas; ganancia neta " +
-                        gananciaNeta.toLocaleString("es-CL") + ").", "win");
-                    mensaje.classList.remove("is-win", "is-loss");
-                    if (resultadoNeto !== "tie") mensaje.classList.add("is-" + resultadoNeto);
-                }
-            } else {
-                mostrarResultadoJuego("loss", cantidadApuesta);
-                mostrarMensaje("Salió " + numero + " " + color + ". No hubo premio; perdiste " +
-                    cantidadApuesta.toLocaleString("es-CL") + " puntos.", "loss");
-            }
-            apuestasPendientes = [];
-            girando = false;
-            cambiarEstadoControles(false);
-            actualizarApuestas();
-            actualizarSaldo();
-            cancelarCuentaAtras();
+            finalizarGiroRuleta(giroGuardado, false);
         }, duracionGiroPelota + 150);
     }
 
     actualizarSeleccion();
     actualizarSaldo();
-    actualizarApuestas();
+    let giroRecuperado = leerGiroRuleta();
+    if (giroRecuperado) {
+        apuestasPendientes = [];
+        finalizarGiroRuleta(giroRecuperado, true);
+    } else {
+        restaurarApuestasPendientes();
+        actualizarApuestas();
+        if (apuestasPendientes.length) {
+            mostrarMensaje("Se restauraron tus apuestas preparadas.", "");
+            iniciarCuentaAtras();
+        }
+    }
 }
 
 document.querySelector(".register-form")?.addEventListener("submit", function(evento) {
@@ -1294,7 +1740,7 @@ document.querySelector(".register-form")?.addEventListener("submit", function(ev
         username,
         password,
         displayName,
-        puntos: 2000,
+        puntos: 0,
         bonoInicioSesionOtorgado: false
     });
     guardarCuentas(cuentas);
@@ -1332,27 +1778,36 @@ document.querySelector(".login-form")?.addEventListener("submit", function(event
         return;
     }
 
-    let bonoInicioSesion = cuenta.bonoInicioSesionOtorgado !== true;
     let saldo = puntosCuenta(cuenta);
-    if (bonoInicioSesion) {
-        if (saldo > Number.MAX_SAFE_INTEGER - 1000) {
+    let bonoAplicado = cuenta.bonoInicioSesionOtorgado !== true;
+    if (bonoAplicado) {
+        if (saldo > Number.MAX_SAFE_INTEGER - 3000) {
             alert("No se pudo aplicar el bono de inicio de sesión porque el saldo superaría el límite permitido.");
             return;
         }
-        cuenta.puntos = saldo + 1000;
+        cuenta.puntos = saldo + 3000;
         cuenta.bonoInicioSesionOtorgado = true;
         guardarCuentas(cuentas);
         saldo = cuenta.puntos;
     }
 
     sessionStorage.setItem("chichacookSession", cuenta.username);
-    alert(bonoInicioSesion
+    alert(bonoAplicado
         ? "¡Bienvenido/a, " + cuenta.displayName +
-            "! Recibiste 1.000 puntos por iniciar sesión. Tu saldo es de " +
+            "! Recibiste tu bono único de 3.000 puntos. Tu saldo es de " +
             saldo.toLocaleString("es-CL") + " puntos."
-        : "¡Bienvenido/a, " + cuenta.displayName + "! Tienes " +
+        : "¡Bienvenido/a, " + cuenta.displayName + "! Tu saldo es de " +
             saldo.toLocaleString("es-CL") + " puntos.");
-    window.location.href = "index.html";
+    let continuarCompra = sessionStorage.getItem("chichacookContinueAfterLogin");
+    if (continuarCompra === "services-cart") {
+        sessionStorage.removeItem("chichacookContinueAfterLogin");
+        window.location.href = "servicios.html?abrirCarrito=1";
+    } else if (continuarCompra === "services-add-product") {
+        sessionStorage.removeItem("chichacookContinueAfterLogin");
+        window.location.href = "servicios.html?abrirCarrito=1&agregarPendiente=1";
+    } else {
+        window.location.href = "index.html";
+    }
 });
 
 let recoveryDialog = document.getElementById("password-recovery-dialog");
@@ -1399,10 +1854,21 @@ recoveryForm?.addEventListener("submit", function(evento) {
 document.getElementById("redeem-reward")?.addEventListener("click", function(evento) {
     let boton = evento.currentTarget;
     let mensaje = document.getElementById("redeem-message");
-    let cuenta = obtenerCuentaSesion();
+    let usuarioSesion = sessionStorage.getItem("chichacookSession");
+    let cuentas = obtenerCuentas();
+    let cuenta = cuentas.find(function(usuario) {
+        return normalizarIdentificador(usuario.username) === normalizarIdentificador(usuarioSesion);
+    });
     if (!cuenta) {
         mensaje.textContent = "Inicia sesión para consultar tus puntos y canjear la recompensa.";
         mensaje.classList.add("is-redeem-error");
+        return;
+    }
+    if (cuenta.recompensaChichaCanjeada) {
+        mensaje.textContent = "Ya canjeaste esta recompensa. Solo se permite un canje por cuenta.";
+        mensaje.classList.remove("is-redeem-error");
+        boton.disabled = true;
+        boton.textContent = "Ya canjeada";
         return;
     }
     if (puntosCuenta(cuenta) < 15000) {
@@ -1411,24 +1877,146 @@ document.getElementById("redeem-reward")?.addEventListener("click", function(eve
         mensaje.classList.add("is-redeem-error");
         return;
     }
-    let saldo = cambiarPuntosSesion(-15000);
-    if (saldo === null) {
-        mensaje.textContent = "No se pudo completar el canje. Vuelve a iniciar sesión e inténtalo otra vez.";
+    cuenta.puntos = puntosCuenta(cuenta) - 15000;
+    cuenta.recompensaChichaCanjeada = true;
+    guardarCuentas(cuentas);
+
+    mensaje.classList.remove("is-redeem-error");
+    boton.disabled = true;
+    boton.textContent = "Ya canjeada";
+    mensaje.textContent = "¡Canje realizado! Disfruta tu chicha. Esta recompensa ya quedó registrada en tu cuenta.";
+    let estadoRecompensa = document.getElementById("reward-status");
+    if (estadoRecompensa) {
+        estadoRecompensa.textContent = "Recompensa canjeada";
+        estadoRecompensa.classList.add("is-redeemed");
+    }
+    actualizarNavegacionSesion();
+    let puntosRecompensaActuales = document.getElementById("reward-points");
+    if (puntosRecompensaActuales) {
+        puntosRecompensaActuales.textContent = cuenta.puntos.toLocaleString("es-CL");
+    }
+});
+
+document.getElementById("redeem-topping-reward")?.addEventListener("click", function(evento) {
+    let boton = evento.currentTarget;
+    let mensaje = document.getElementById("topping-redeem-message");
+    let estado = document.getElementById("topping-reward-status");
+    let usuarioSesion = sessionStorage.getItem("chichacookSession");
+    let cuentas = obtenerCuentas();
+    let cuenta = cuentas.find(function(usuario) {
+        return normalizarIdentificador(usuario.username) === normalizarIdentificador(usuarioSesion);
+    });
+
+    if (!cuenta) {
+        mensaje.textContent = "Inicia sesión para canjear esta recompensa.";
+        mensaje.classList.add("is-redeem-error");
+        return;
+    }
+    if (cuenta.recompensaToppingCanjeada) {
+        boton.disabled = true;
+        boton.textContent = "Ya canjeada";
+        mensaje.textContent = "Esta recompensa solo se puede canjear una vez por cuenta.";
+        mensaje.classList.remove("is-redeem-error");
+        return;
+    }
+    if (puntosCuenta(cuenta) < 10000) {
+        mensaje.textContent = "Necesitas 10.000 puntos. Tu saldo es " +
+            puntosCuenta(cuenta).toLocaleString("es-CL") + " puntos.";
         mensaje.classList.add("is-redeem-error");
         return;
     }
 
-    mensaje.classList.remove("is-redeem-error");
+    cuenta.puntos = puntosCuenta(cuenta) - 10000;
+    cuenta.recompensaToppingCanjeada = true;
+    cuenta.toppingGratisDisponible = true;
+    guardarCuentas(cuentas);
     boton.disabled = true;
-    boton.textContent = "Canje realizado";
-    mensaje.textContent = "¡Gracias por su canjeo! Disfrute su chicha ChichaCook.";
+    boton.textContent = "Ya canjeada";
+    mensaje.classList.remove("is-redeem-error");
+    mensaje.textContent = "Canje realizado. El topping extra gratis estará disponible en tu próxima compra con extra.";
+    if (estado) estado.textContent = "Canjeada: topping extra disponible";
+    document.querySelectorAll("#reward-points, #topping-reward-points").forEach(function(elemento) {
+        elemento.textContent = cuenta.puntos.toLocaleString("es-CL");
+    });
+    actualizarNavegacionSesion();
 });
 
 iniciarBlackjack();
 iniciarRuleta();
 actualizarNavegacionSesion();
+actualizarCantidad();
+let parametrosServicios = new URLSearchParams(window.location.search);
+if (document.querySelector(".pedido") && parametrosServicios.get("agregarPendiente") === "1" && obtenerCuentaSesion()) {
+    let productoPendiente;
+    try {
+        productoPendiente = JSON.parse(sessionStorage.getItem("chichacookPendingProduct") || "null");
+    } catch (error) {
+        productoPendiente = null;
+    }
+    sessionStorage.removeItem("chichacookPendingProduct");
+    let opcionesToppingValidas = ["Ninguno", "Oreo", "M&M", "Chispas de chocolate"];
+    if (productoPendiente && opcionesToppingValidas.includes(productoPendiente.topping1) &&
+        opcionesToppingValidas.includes(productoPendiente.topping2) &&
+        opcionesToppingValidas.includes(productoPendiente.extra)) {
+        carrito.push({
+            nombre: "Chicha venezolana",
+            toppings: productoPendiente.topping1 + ", " + productoPendiente.topping2,
+            extra: productoPendiente.extra,
+            precio: productoPendiente.extra === "Ninguno" ? 1200 : 1400
+        });
+        guardarCarrito();
+        actualizarCantidad();
+    }
+}
+if (document.querySelector(".pedido") && parametrosServicios.get("abrirCarrito") === "1") {
+    mostrarCarrito();
+}
 let puntosRecompensa = document.getElementById("reward-points");
-if (puntosRecompensa) {
+let puntosToppingRecompensa = document.getElementById("topping-reward-points");
+if (puntosRecompensa || puntosToppingRecompensa) {
     let cuenta = obtenerCuentaSesion();
-    puntosRecompensa.textContent = cuenta ? puntosCuenta(cuenta).toLocaleString("es-CL") : "Inicia sesión";
+    let saldoRecompensas = cuenta ? puntosCuenta(cuenta).toLocaleString("es-CL") : "Inicia sesión";
+    if (puntosRecompensa) puntosRecompensa.textContent = saldoRecompensas;
+    if (puntosToppingRecompensa) puntosToppingRecompensa.textContent = saldoRecompensas;
+    let botonRecompensa = document.getElementById("redeem-reward");
+    let estadoRecompensa = document.getElementById("reward-status");
+    let mensajeRecompensa = document.getElementById("redeem-message");
+    if (cuenta && cuenta.recompensaChichaCanjeada) {
+        if (botonRecompensa) {
+            botonRecompensa.disabled = true;
+            botonRecompensa.textContent = "Ya canjeada";
+        }
+        if (estadoRecompensa) {
+            estadoRecompensa.textContent = "Recompensa canjeada";
+            estadoRecompensa.classList.add("is-redeemed");
+        }
+        if (mensajeRecompensa) {
+            mensajeRecompensa.textContent = "Esta recompensa ya fue canjeada en tu cuenta.";
+        }
+    } else if (cuenta && estadoRecompensa) {
+        estadoRecompensa.textContent = "Disponible para canjear";
+    }
+
+    let botonToppingRecompensa = document.getElementById("redeem-topping-reward");
+    let estadoToppingRecompensa = document.getElementById("topping-reward-status");
+    let mensajeToppingRecompensa = document.getElementById("topping-redeem-message");
+    if (cuenta && cuenta.recompensaToppingCanjeada) {
+        if (botonToppingRecompensa) {
+            botonToppingRecompensa.disabled = true;
+            botonToppingRecompensa.textContent = "Ya canjeada";
+        }
+        if (estadoToppingRecompensa) {
+            estadoToppingRecompensa.textContent = cuenta.toppingGratisDisponible
+                ? "Canjeada: topping extra disponible"
+                : "Recompensa ya utilizada";
+            if (!cuenta.toppingGratisDisponible) estadoToppingRecompensa.classList.add("is-redeemed");
+        }
+        if (mensajeToppingRecompensa) {
+            mensajeToppingRecompensa.textContent = cuenta.toppingGratisDisponible
+                ? "El topping extra gratis se aplicará a una chicha con extra en tu próxima compra."
+                : "Esta recompensa ya fue utilizada en una compra.";
+        }
+    } else if (cuenta && estadoToppingRecompensa) {
+        estadoToppingRecompensa.textContent = "Disponible para canjear";
+    }
 }
