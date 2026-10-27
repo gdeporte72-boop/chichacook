@@ -15,14 +15,16 @@
       <span class="logo-name"><span>CHICHA</span><span class="logo-accent">COOK</span></span>
     </a>
 
-    <nav class="main-nav" aria-label="Navegación principal">
-        <a href="index.html">Inicio</a>
-        <a href="servicios.html">Servicios</a>
-        <a href="finanzas.html">Finanzas</a>
+    <button class="menu-toggle" type="button" onclick="toggleMenu()" aria-label="Abrir menú" aria-expanded="false" aria-controls="main-nav">
+      <span class="menu-icon" aria-hidden="true"></span>
+    </button>
+
+    <nav class="main-nav" id="main-nav" aria-label="Navegación principal">
+               <a href="index.html">Inicio</a>
         <a href="nosotros.html">Nosotros</a>
+        <a href="servicios.html">Servicios</a>
         <a href="contacto.html">Contacto</a>
         <a href="videojuego.html">Videojuego</a>
-        <a href="recompensas.html">Recompensas</a>
     </nav>
 
     <div class="header-actions">
@@ -30,7 +32,7 @@
         <a href="login.html">Iniciar sesión</a>
         <a href="registrarse.html">Registrarse</a>
       </nav>
-      <button type="button" onclick="mostrarCarrito()" aria-label="Mostrar carrito">🛒 <b id="cantidad">0</b></button>
+      <button type="button" onclick="mostrarCarrito()" aria-label="Mostrar carrito" aria-expanded="false">🛒 <b id="cantidad">0</b></button>
     </div>
 
 </header>

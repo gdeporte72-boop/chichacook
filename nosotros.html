@@ -16,14 +16,16 @@
         <span class="logo-name"><span>CHICHA</span><span class="logo-accent">COOK</span></span>
     </a>
 
-    <nav class="main-nav" aria-label="Navegación principal">
-        <a href="index.html">Inicio</a>
-        <a href="servicios.html">Servicios</a>
-        <a href="finanzas.html">Finanzas</a>
+    <button class="menu-toggle" type="button" onclick="toggleMenu()" aria-label="Abrir menú" aria-expanded="false" aria-controls="main-nav">
+        <span class="menu-icon" aria-hidden="true"></span>
+    </button>
+
+    <nav class="main-nav" id="main-nav" aria-label="Navegación principal">
+                <a href="index.html">Inicio</a>
         <a href="nosotros.html">Nosotros</a>
+        <a href="servicios.html">Servicios</a>
         <a href="contacto.html">Contacto</a>
         <a href="videojuego.html">Videojuego</a>
-        <a href="recompensas.html">Recompensas</a>
     </nav>
 
     <div class="header-actions">
@@ -31,7 +33,7 @@
             <a href="login.html">Iniciar sesión</a>
             <a href="registrarse.html">Registrarse</a>
         </nav>
-        <button type="button" onclick="mostrarCarrito()" aria-label="Mostrar carrito">🛒 <b id="cantidad">0</b></button>
+        <button type="button" onclick="mostrarCarrito()" aria-label="Mostrar carrito" aria-expanded="false">🛒 <b id="cantidad">0</b></button>
     </div>
 </header>
 
@@ -43,16 +45,14 @@
 
     <div class="trabajadores">
         <div class="trabajador">
-            <div class="foto"></div>
-            <img src="imagenes/" alt="Foto de Yoneiker Blanco">
+            <img class="foto" src="imagenes/Yb.png" alt="Foto de Yoneiker Blanco">
             <h2>Yoneiker Blanco</h2>
             <h3>Ceo</h3>
             <p>Se encarga de organizar el negocio y tomar decisiones importantes.</p>
         </div>
 
         <div class="trabajador">
-            <div class="foto"></div>
-            <img src="imagenes/" alt="Foto de Deiby Moreno">
+            <img class="foto" src="imagenes/Dm.jpg" alt="Foto de Deiby Moreno">
             <h2>Deiby Moreno</h2>
             <h3>Dir.Contratos</h3>
             <p>Se encarga de realizar los contratos a los trabajadores.</p>
@@ -66,16 +66,14 @@
         </div>
 
         <div class="trabajador">
-            <div class="foto"></div>
-            <img src="imagenes/" alt="Foto de Yael Amari">
+            <div class="foto foto-iniciales" role="img" aria-label="Iniciales de Yael Amari">YA</div>
             <h2>Yael Amari</h2>
             <h3>Comercial</h3>
             <p>Se encarga de las redes sociales y de promocionar ChichaCook.</p>
         </div>
 
         <div class="trabajador">
-            <div class="foto"></div>
-            <img src="imagenes/" alt="Foto de Sandra Haro">
+            <div class="foto foto-iniciales" role="img" aria-label="Iniciales de Sandra Haro">SH</div>
             <h2>Sandra Haro</h2>
             <h3>Contable</h3>
             <p>Atiende a los clientes y recibe los pedidos.</p>

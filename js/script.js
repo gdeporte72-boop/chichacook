@@ -1,24 +1,12 @@
 function limpiarCuentasGuardadasUnaVez() {
-    let marcaReinicio = "chichacookAccountsReset3000";
+    let marcaReinicio = "chichacookAccountsReset1000000";
     try {
         if (localStorage.getItem(marcaReinicio) === "completado") return;
         localStorage.removeItem("chichacookUsers");
         localStorage.removeItem("chichacookUser");
+        sessionStorage.removeItem("chichacookUsersSession");
+        sessionStorage.removeItem("chichacookSession");
         localStorage.setItem(marcaReinicio, "completado");
-
-        let clavesSesion = [];
-        for (let indice = 0; indice < sessionStorage.length; indice++) {
-            let clave = sessionStorage.key(indice);
-            if (clave === "chichacookSession" || clave === "chichacookUsersSession" ||
-                clave.indexOf("chichacookBlackjack:") === 0 ||
-                clave.indexOf("chichacookRouletteBets:") === 0 ||
-                clave.indexOf("chichacookRouletteRound:") === 0) {
-                clavesSesion.push(clave);
-            }
-        }
-        clavesSesion.forEach(function(clave) {
-            sessionStorage.removeItem(clave);
-        });
     } catch (error) {
     }
 }
@@ -144,6 +132,53 @@ function actualizarCantidad() {
     });
 }
 
+let avisoActual = null;
+
+function mostrarAviso(mensaje, tipo, alCerrar) {
+    if (avisoActual) avisoActual.remove();
+
+    let fondo = document.createElement("div");
+    fondo.className = "aviso-fondo";
+    let cuadro = document.createElement("section");
+    cuadro.className = "aviso-cuadro" + (tipo ? " is-" + tipo : "");
+    cuadro.setAttribute("role", "alertdialog");
+    cuadro.setAttribute("aria-modal", "true");
+    cuadro.setAttribute("aria-labelledby", "aviso-titulo");
+
+    let titulo = document.createElement("h2");
+    titulo.id = "aviso-titulo";
+    titulo.textContent = tipo === "error" ? "Revisa esto" : tipo === "success" ? "Listo" : "Aviso";
+    let detalle = document.createElement("p");
+    detalle.textContent = mensaje;
+    let boton = document.createElement("button");
+    boton.className = "aviso-boton";
+    boton.type = "button";
+    boton.textContent = "Entendido";
+    cuadro.append(titulo, detalle, boton);
+    fondo.append(cuadro);
+
+    let focoAnterior = document.activeElement;
+    function cerrarAviso() {
+        document.removeEventListener("keydown", cerrarConEscape);
+        fondo.remove();
+        avisoActual = null;
+        if (focoAnterior && focoAnterior.isConnected) focoAnterior.focus();
+        if (alCerrar) alCerrar();
+    }
+    function cerrarConEscape(evento) {
+        if (evento.key === "Escape") cerrarAviso();
+    }
+
+    boton.addEventListener("click", cerrarAviso);
+    fondo.addEventListener("click", function(evento) {
+        if (evento.target === fondo) cerrarAviso();
+    });
+    document.addEventListener("keydown", cerrarConEscape);
+    document.body.append(fondo);
+    avisoActual = fondo;
+    boton.focus();
+}
+
 function agregar() {
     let topping1 = document.getElementById("topping1").value;
     let topping2 = document.getElementById("topping2").value;
@@ -156,11 +191,12 @@ function agregar() {
         } catch (error) {
             sessionStorage.removeItem("chichacookPendingProduct");
             sessionStorage.removeItem("chichacookContinueAfterLogin");
-            alert("Inicia sesión para agregar una chicha al carrito.");
+            mostrarAviso("Inicia sesión para agregar una chicha al carrito.", "error");
             return;
         }
-        alert("Para agregar una chicha al carrito debes iniciar sesión.");
-        window.location.href = "login.html";
+        mostrarAviso("Para agregar una chicha al carrito debes iniciar sesión.", "error", function() {
+            window.location.href = "login.html";
+        });
         return;
     }
 
@@ -186,15 +222,24 @@ function agregar() {
         renderizarCarrito();
     }
 
-    alert("Chicha agregada al carrito");
+    mostrarAviso("Chicha agregada al carrito.", "success");
 }
 
 function mostrarCarrito() {
     let caja = document.getElementById("carrito");
     if (!caja) return;
 
-    caja.classList.toggle("mostrar");
+    let abierto = caja.classList.toggle("mostrar");
+    let botonCarrito = document.querySelector("header button[aria-label='Mostrar carrito']");
+    if (botonCarrito) botonCarrito.setAttribute("aria-expanded", abierto);
     renderizarCarrito();
+}
+
+function cerrarCarrito() {
+    let caja = document.getElementById("carrito");
+    if (caja) caja.classList.remove("mostrar");
+    let botonCarrito = document.querySelector("header button[aria-label='Mostrar carrito']");
+    if (botonCarrito) botonCarrito.setAttribute("aria-expanded", "false");
 }
 
 function opcionesTopping(seleccionado) {
@@ -208,7 +253,8 @@ function opcionesTopping(seleccionado) {
 function renderizarCarrito() {
     let caja = document.getElementById("carrito");
     if (!caja) return;
-    let texto = "<h2>Carrito</h2>";
+    let texto = "<div class='cart-heading'><h2>Carrito</h2>" +
+        "<button class='cart-close' type='button' onclick='cerrarCarrito()' aria-label='Cerrar carrito' title='Cerrar carrito'>&times;</button></div>";
 
     if (carrito.length == 0) {
         texto += "<p>El carrito está vacío.</p>";
@@ -307,22 +353,23 @@ function eliminarProducto(indice) {
 function comprar() {
     if (!obtenerCuentaSesion()) {
         if (!carrito.length) {
-            alert("Agrega una chicha al carrito antes de comprar.");
+            mostrarAviso("Agrega una chicha al carrito antes de comprar.", "error");
             return;
         }
         if (!guardarCarrito()) {
-            alert("No se pudo guardar tu carrito. Inténtalo de nuevo antes de iniciar sesión.");
+            mostrarAviso("No se pudo guardar tu carrito. Inténtalo de nuevo antes de iniciar sesión.", "error");
             return;
         }
         sessionStorage.setItem("chichacookContinueAfterLogin", "services-cart");
-        alert("Para completar la compra debes iniciar sesión. Conservamos tu carrito.");
-        window.location.href = "login.html";
+        mostrarAviso("Para completar la compra debes iniciar sesión. Conservamos tu carrito.", "error", function() {
+            window.location.href = "login.html";
+        });
         return;
     }
 
     let metodoPago = document.getElementById("metodo-pago");
     if (!metodoPago || !metodoPago.value) {
-        alert("Selecciona efectivo o tarjeta para continuar con la compra.");
+        mostrarAviso("Selecciona efectivo o tarjeta para continuar con la compra.", "error");
         if (metodoPago) metodoPago.focus();
         return;
     }
@@ -339,8 +386,8 @@ function comprar() {
         return total + producto.precio - (indice === indiceToppingGratis ? 200 : 0);
     }, 0);
     let pagoConfirmado = metodoPago.value === "efectivo" ? "efectivo" : "tarjeta";
-    alert("¡Pedido realizado correctamente! Total: $" + totalCompra.toLocaleString("es-CL") +
-        ". Método de pago: " + pagoConfirmado + ".");
+    let mensajeCompra = "¡Pedido realizado correctamente! Total: $" + totalCompra.toLocaleString("es-CL") +
+        ". Método de pago: " + pagoConfirmado + ".";
 
     if (indiceToppingGratis >= 0 && cuentaCompra) {
         cuentaCompra.toppingGratisDisponible = false;
@@ -357,6 +404,9 @@ function comprar() {
         elemento.classList.remove("mostrar");
         elemento.innerHTML = "";
     });
+    let botonCarrito = document.querySelector("header button[aria-label='Mostrar carrito']");
+    if (botonCarrito) botonCarrito.setAttribute("aria-expanded", "false");
+    mostrarAviso(mensajeCompra, "success");
 }
 
 function enviar(evento) {
@@ -364,7 +414,7 @@ function enviar(evento) {
 
     let nombre = document.getElementById("nombre").value;
 
-    alert("Gracias " + nombre + ", recibimos tu mensaje.");
+    mostrarAviso("Gracias " + nombre + ", recibimos tu mensaje.", "success");
 }
 
 function obtenerCuentas() {
@@ -519,12 +569,14 @@ function iniciarBlackjack() {
     let totalCasa = document.getElementById("dealer-total");
     let mensaje = document.getElementById("blackjack-message");
     let botonPedir = document.getElementById("blackjack-hit");
+    let botonDoblar = document.getElementById("blackjack-double");
     let botonPlantarse = document.getElementById("blackjack-stand");
     let botonNueva = document.getElementById("blackjack-new");
     let apuestaInput = document.getElementById("blackjack-bet");
     let puntosJugador = document.getElementById("blackjack-points");
     let apuestaActual = 0;
     let apuestaLiquidada = false;
+    let turnoDoblado = false;
     let repartiendo = false;
     let numeroPartida = 0;
     let faseJuego = "idle";
@@ -549,7 +601,8 @@ function iniciarBlackjack() {
                 victorias,
                 derrotas,
                 faseJuego,
-                indiceReparto
+                indiceReparto,
+                turnoDoblado
             }));
             return true;
         } catch (error) {
@@ -574,6 +627,7 @@ function iniciarBlackjack() {
                 !Number.isSafeInteger(partida.apuestaActual) || partida.apuestaActual <= 0 ||
                 !Number.isSafeInteger(partida.victorias) || !Number.isSafeInteger(partida.derrotas) ||
                 !["initial-deal", "player", "dealer"].includes(partida.faseJuego) ||
+                (typeof partida.turnoDoblado !== "undefined" && typeof partida.turnoDoblado !== "boolean") ||
                 !Number.isInteger(partida.indiceReparto) || partida.indiceReparto < 0 || partida.indiceReparto > 4) {
                 sessionStorage.removeItem(clavePartida);
                 return null;
@@ -693,9 +747,11 @@ function iniciarBlackjack() {
             : calcularPuntos(manoCasa.slice(0, 1)) + " + ?");
         botonPedir.disabled = !partidaActiva;
         botonPlantarse.disabled = !partidaActiva;
+        let cuenta = obtenerCuentaSesion();
+        botonDoblar.disabled = !partidaActiva || repartiendo || turnoDoblado || manoJugador.length !== 2 ||
+            !cuenta || puntosCuenta(cuenta) < apuestaActual;
         botonNueva.disabled = partidaActiva || repartiendo;
         apuestaInput.disabled = partidaActiva || repartiendo;
-        let cuenta = obtenerCuentaSesion();
         puntosJugador.textContent = cuenta
             ? puntosCuenta(cuenta).toLocaleString("es-CL")
             : "Inicia sesión";
@@ -769,6 +825,7 @@ function iniciarBlackjack() {
         manoCasa = partidaGuardada.manoCasa;
         apuestaActual = partidaGuardada.apuestaActual;
         apuestaLiquidada = false;
+        turnoDoblado = partidaGuardada.turnoDoblado === true;
         victorias = partidaGuardada.victorias;
         derrotas = partidaGuardada.derrotas;
         faseJuego = partidaGuardada.faseJuego;
@@ -794,7 +851,7 @@ function iniciarBlackjack() {
             terminarMano();
         } else {
             partidaActiva = true;
-            if (calcularPuntos(manoJugador) >= 21) {
+            if (turnoDoblado || calcularPuntos(manoJugador) >= 21) {
                 terminarMano();
             } else {
                 mostrarMensaje("Partida recuperada. Tu turno: pide una carta o plántate.", "");
@@ -909,6 +966,7 @@ function iniciarBlackjack() {
         let partida = ++numeroPartida;
         apuestaActual = cantidadApuesta;
         apuestaLiquidada = false;
+        turnoDoblado = false;
         repartiendo = true;
         partidaActiva = false;
         faseJuego = "initial-deal";
@@ -936,7 +994,7 @@ function iniciarBlackjack() {
     }
 
     botonPedir.addEventListener("click", function() {
-        if (!partidaActiva || repartiendo) return;
+        if (!partidaActiva || repartiendo || turnoDoblado) return;
         repartiendo = true;
         partidaActiva = false;
         let carta = tomarCarta();
@@ -959,6 +1017,42 @@ function iniciarBlackjack() {
         }, 500);
     });
 
+    botonDoblar.addEventListener("click", function() {
+        if (!partidaActiva || repartiendo || turnoDoblado || manoJugador.length !== 2) return;
+        let cuenta = obtenerCuentaSesion();
+        if (!cuenta || puntosCuenta(cuenta) < apuestaActual) {
+            mostrarMensaje("No tienes saldo suficiente para doblar la apuesta.", "loss");
+            actualizarMesa(false);
+            return;
+        }
+        if (apuestaActual > Math.floor((Number.MAX_SAFE_INTEGER - puntosCuenta(cuenta)) / 2)) {
+            mostrarMensaje("La apuesta doblada supera el límite de puntos permitido.", "loss");
+            return;
+        }
+        if (cambiarPuntosSesion(-apuestaActual) === null) {
+            mostrarMensaje("No se pudo doblar la apuesta. Vuelve a iniciar sesión.", "loss");
+            actualizarMesa(false);
+            return;
+        }
+
+        apuestaActual *= 2;
+        turnoDoblado = true;
+        repartiendo = true;
+        partidaActiva = false;
+        let carta = tomarCarta();
+        manoJugador.push(carta);
+        faseJuego = "player";
+        actualizarMesa(false);
+        mostrarMensaje("Apuesta doblada. Recibes " + carta.valor + carta.palo.simbolo +
+            " y tu turno termina.", "");
+
+        window.setTimeout(function() {
+            repartiendo = false;
+            partidaActiva = true;
+            terminarMano();
+        }, 500);
+    });
+
     botonPlantarse.addEventListener("click", function() {
         if (partidaActiva && !repartiendo) terminarMano();
     });
@@ -976,7 +1070,6 @@ function iniciarRuleta() {
 
     let numerosRojos = new Set([1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36]);
     let ordenRuleta = ["0", "28", "9", "26", "30", "11", "7", "20", "32", "17", "5", "22", "34", "15", "3", "24", "36", "13", "1", "00", "27", "10", "25", "29", "12", "8", "19", "31", "18", "6", "21", "33", "16", "4", "23", "35", "14", "2"];
-    let duracionVueltaRuleta = 90000;
     let opciones = Array.from(document.querySelectorAll(".roulette-bet-choice"));
     let fichasRapidas = Array.from(document.querySelectorAll(".roulette-chip-choice"));
     let apuestaInput = document.getElementById("roulette-bet");
@@ -994,6 +1087,10 @@ function iniciarRuleta() {
     let listaApuestas = document.getElementById("roulette-pending-list");
     let contadorApuestas = document.getElementById("roulette-bet-count");
     let totalApuestaTexto = document.getElementById("roulette-total-bet");
+    let listaHistorial = document.getElementById("roulette-history-list");
+    let contadorHistorial = document.getElementById("roulette-history-count");
+    let listaHistorialUsuario = document.getElementById("roulette-user-history-list");
+    let contadorHistorialUsuario = document.getElementById("roulette-user-history-count");
     let botonesCasilla = [];
     let etiquetasRueda = [];
     let apuestasPendientes = [];
@@ -1003,6 +1100,7 @@ function iniciarRuleta() {
     let girando = false;
     let temporizadorApuesta = null;
     let finCuentaAtras = 0;
+    let anguloActualRueda = 0;
     let audioContext = null;
     let sonidoActivo = false;
     let usuarioApuestas = sessionStorage.getItem("chichacookSession");
@@ -1012,10 +1110,101 @@ function iniciarRuleta() {
     let claveGiroRuleta = usuarioApuestas
         ? "chichacookRouletteRound:" + normalizarIdentificador(usuarioApuestas)
         : null;
+    let claveHistorialRuleta = "chichacookRouletteHistory";
+    let claveHistorialPersonal = usuarioApuestas
+        ? "chichacookRouletteUserHistory:" + normalizarIdentificador(usuarioApuestas)
+        : null;
 
     function colorNumero(numero) {
         if (numero === "0" || numero === "00") return "green";
         return numerosRojos.has(Number(numero)) ? "red" : "black";
+    }
+
+    function leerHistorialRuleta(clave) {
+        if (!clave) return [];
+        try {
+            let historial = JSON.parse(localStorage.getItem(clave) || "[]");
+            if (!Array.isArray(historial)) return [];
+            return historial.filter(function(resultado) {
+                return resultado && ordenRuleta.includes(String(resultado.numero)) &&
+                    Number.isSafeInteger(resultado.fecha) && resultado.fecha > 0;
+            }).slice(0, 12);
+        } catch (error) {
+            return [];
+        }
+    }
+
+    function actualizarHistorialRuleta(clave, lista, contador, esPersonal) {
+        let historial = leerHistorialRuleta(clave);
+        lista.replaceChildren();
+        contador.textContent = !clave
+            ? "Inicia sesión"
+            : historial.length + (historial.length === 1 ? " resultado" : " resultados");
+
+        if (!clave || historial.length === 0) {
+            let vacio = document.createElement("li");
+            vacio.className = "roulette-history-empty";
+            vacio.textContent = !clave
+                ? "Inicia sesión para ver tu historial."
+                : "Aún no hay resultados.";
+            lista.append(vacio);
+            return;
+        }
+
+        historial.forEach(function(resultado) {
+            let numero = String(resultado.numero);
+            let color = colorNumero(numero);
+            let fecha = new Date(resultado.fecha);
+            let elemento = document.createElement("li");
+            let numeroElemento = document.createElement("strong");
+            let detalle = document.createElement("span");
+            let colorElemento = document.createElement("span");
+            let horaElemento = document.createElement("time");
+            let resumenApuesta = document.createElement("span");
+            elemento.className = "roulette-history-entry is-" + color;
+            numeroElemento.className = "roulette-history-number";
+            numeroElemento.textContent = numero;
+            detalle.className = "roulette-history-details";
+            colorElemento.textContent = color === "red" ? "Rojo" : color === "black" ? "Negro" : "Verde";
+            horaElemento.dateTime = fecha.toISOString();
+            horaElemento.textContent = new Intl.DateTimeFormat("es-CL", {
+                day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit"
+            }).format(fecha);
+            detalle.append(colorElemento, horaElemento);
+            if (esPersonal && Number.isSafeInteger(resultado.apostado) && Number.isSafeInteger(resultado.neto)) {
+                resumenApuesta.className = "roulette-history-bet" +
+                    (resultado.neto > 0 ? " is-win" : resultado.neto < 0 ? " is-loss" : " is-tie");
+                resumenApuesta.textContent = "Apostaste " + resultado.apostado.toLocaleString("es-CL") +
+                    " · " + (resultado.neto > 0 ? "+" : "") + resultado.neto.toLocaleString("es-CL") + " pts";
+                detalle.append(resumenApuesta);
+            }
+            elemento.append(numeroElemento, detalle);
+            lista.append(elemento);
+        });
+    }
+
+    function guardarResultadoHistorial(clave, resultado) {
+        let historial = leerHistorialRuleta(clave);
+        historial.unshift(resultado);
+        try {
+            localStorage.setItem(clave, JSON.stringify(historial.slice(0, 12)));
+        } catch (error) {
+        }
+    }
+
+    function registrarResultadoRuleta(numero, cantidadApuesta, premio) {
+        let fecha = Date.now();
+        guardarResultadoHistorial(claveHistorialRuleta, { numero: String(numero), fecha: fecha });
+        if (claveHistorialPersonal) {
+            guardarResultadoHistorial(claveHistorialPersonal, {
+                numero: String(numero),
+                fecha: fecha,
+                apostado: cantidadApuesta,
+                neto: premio - cantidadApuesta
+            });
+        }
+        actualizarHistorialRuleta(claveHistorialRuleta, listaHistorial, contadorHistorial, false);
+        actualizarHistorialRuleta(claveHistorialPersonal, listaHistorialUsuario, contadorHistorialUsuario, true);
     }
 
     function numeroIncluido(numero, tipo, numeroApostado) {
@@ -1134,6 +1323,33 @@ function iniciarRuleta() {
         apuestaInput.max = String(saldo);
     }
 
+    function anguloFijoRueda(numero) {
+        let indice = ordenRuleta.indexOf(String(numero));
+        let gradosPorCasilla = 360 / ordenRuleta.length;
+        let anguloCentro = indice * gradosPorCasilla + gradosPorCasilla / 2;
+        return 360 * 8 - anguloCentro;
+    }
+
+    function obtenerAnguloTransformacion(elemento, respaldo) {
+        let transformacion = window.getComputedStyle(elemento).transform;
+        if (!transformacion || transformacion === "none") return respaldo;
+        let matriz = new window.DOMMatrixReadOnly(transformacion);
+        return Math.atan2(matriz.b, matriz.a) * 180 / Math.PI;
+    }
+
+    function obtenerAnguloRueda() {
+        return obtenerAnguloTransformacion(aroRuleta, anguloActualRueda);
+    }
+
+    function colocarRueda(numero) {
+        anguloActualRueda = anguloFijoRueda(numero);
+        aroRuleta.classList.remove("is-idle");
+        aroRuleta.style.transition = "none";
+        aroRuleta.style.transform = "rotate(" + anguloActualRueda + "deg)";
+        void aroRuleta.offsetWidth;
+        aroRuleta.style.removeProperty("transition");
+    }
+
     function finalizarGiroRuleta(giro, recuperado) {
         let numero = String(giro.numero);
         let indiceResultado = ordenRuleta.indexOf(numero);
@@ -1150,16 +1366,9 @@ function iniciarRuleta() {
         let importeGanador = apuestasGanadoras.reduce(function(total, apuesta) {
             return total + apuesta.importe;
         }, 0);
-        let gradosPorCasilla = 360 / ordenRuleta.length;
-        let anguloCentroResultado = indiceResultado * gradosPorCasilla + gradosPorCasilla / 2;
-
         resultadoElemento.textContent = numero;
-        let ruedaAlineada = -anguloCentroResultado;
-        aroRuleta.style.transform = "rotate(" + ruedaAlineada + "deg)";
-        etiquetasRueda.forEach(function(etiqueta) {
-            etiqueta.style.transform = "rotate(" + -ruedaAlineada + "deg)";
-        });
-        aroRuleta.classList.remove("is-idle");
+        registrarResultadoRuleta(numero, cantidadApuesta, premio);
+        colocarRueda(numero);
         pistaPelota.classList.remove("is-spinning");
         pistaPelota.classList.add("is-revealed", "is-landed");
         pistaPelota.style.transform = "rotate(0deg)";
@@ -1433,6 +1642,26 @@ function iniciarRuleta() {
 
     createRouletteBoard();
     crearRueda();
+    actualizarHistorialRuleta(claveHistorialRuleta, listaHistorial, contadorHistorial, false);
+    actualizarHistorialRuleta(claveHistorialPersonal, listaHistorialUsuario, contadorHistorialUsuario, true);
+    window.addEventListener("storage", function(evento) {
+        if (evento.key === claveHistorialRuleta) {
+            actualizarHistorialRuleta(claveHistorialRuleta, listaHistorial, contadorHistorial, false);
+        }
+        if (claveHistorialPersonal && evento.key === claveHistorialPersonal) {
+            actualizarHistorialRuleta(claveHistorialPersonal, listaHistorialUsuario, contadorHistorialUsuario, true);
+        }
+    });
+    aroRuleta.style.setProperty("--wheel-idle-start", anguloActualRueda + "deg");
+    aroRuleta.style.setProperty("--wheel-idle-counter-start", -anguloActualRueda + "deg");
+    aroRuleta.classList.add("is-idle");
+    ajustarRadioRueda();
+    window.addEventListener("resize", ajustarRadioRueda);
+
+    function ajustarRadioRueda() {
+        let radio = rueda.clientWidth / 2 - 33;
+        aroRuleta.style.setProperty("--wheel-radius", radio + "px");
+    }
 
     function createRouletteBoard() {
         crearCasilla("0", "green", 1, 1, 2);
@@ -1484,21 +1713,6 @@ function iniciarRuleta() {
         aroRuleta.style.background = "conic-gradient(" + sectores.join(", ") + ")";
     }
 
-    aroRuleta.classList.add("is-idle");
-
-    function anguloActualRueda() {
-        let transformacion = window.getComputedStyle(aroRuleta).transform;
-        if (transformacion === "none") return 0;
-        let matriz = new DOMMatrixReadOnly(transformacion);
-        return (Math.atan2(matriz.b, matriz.a) * 180 / Math.PI + 360) % 360;
-    }
-
-    function iniciarGiroLento() {
-        if (aroRuleta.classList.contains("is-idle")) return;
-        aroRuleta.style.setProperty("--wheel-start-angle", anguloActualRueda() + "deg");
-        aroRuleta.classList.add("is-idle");
-    }
-
     function actualizarCuentaAtras() {
         let segundos = Math.max(0, Math.ceil((finCuentaAtras - Date.now()) / 1000));
         cuentaAtras.textContent = "Quedan " + segundos + " s para girar la ruleta.";
@@ -1511,8 +1725,12 @@ function iniciarRuleta() {
 
     function iniciarCuentaAtras() {
         if (temporizadorApuesta !== null || girando || apuestasPendientes.length === 0) return;
-        iniciarGiroLento();
-        finCuentaAtras = Date.now() + 45000;
+        aroRuleta.style.setProperty("--wheel-idle-start", anguloActualRueda + "deg");
+        aroRuleta.style.setProperty("--wheel-idle-counter-start", -anguloActualRueda + "deg");
+        aroRuleta.classList.add("is-idle");
+        pistaPelota.classList.remove("is-revealed", "is-spinning", "is-landed");
+        resultadoElemento.textContent = "?";
+        finCuentaAtras = Date.now() + 20000;
         actualizarCuentaAtras();
         temporizadorApuesta = window.setInterval(actualizarCuentaAtras, 1000);
     }
@@ -1522,7 +1740,7 @@ function iniciarRuleta() {
             window.clearInterval(temporizadorApuesta);
             temporizadorApuesta = null;
         }
-        cuentaAtras.textContent = "Añade una apuesta para iniciar el conteo de 45 segundos.";
+        cuentaAtras.textContent = "Añade una apuesta para iniciar el conteo de 20 segundos.";
     }
 
     opciones.forEach(function(opcion) {
@@ -1653,10 +1871,18 @@ function iniciarRuleta() {
         let gradosPorCasilla = 360 / ordenRuleta.length;
         let resultado = Math.floor(Math.random() * ordenRuleta.length);
         let anguloCentroResultado = resultado * gradosPorCasilla + gradosPorCasilla / 2;
+        let anguloInicioRueda = obtenerAnguloRueda();
+        let angulosInicioEtiquetas = etiquetasRueda.map(function(etiqueta) {
+            return obtenerAnguloTransformacion(etiqueta, 0);
+        });
         let anguloInicioPelota = Math.floor(Math.random() * 360);
-        let vueltasBola = 2 + Math.floor(Math.random() * 4);
-        let duracionGiroPelota = 6500 + vueltasBola * 700 + Math.floor(Math.random() * 1300);
-        let anguloFinalPelota = -vueltasBola * 360;
+        let vueltasRueda = 5 + Math.floor(Math.random() * 3);
+        let vueltasBola = 3 + Math.floor(Math.random() * 3);
+        let duracionGiroPelota = 12000 + Math.floor(Math.random() * 3000);
+        let faseActual = ((anguloInicioRueda % 360) + 360) % 360;
+        let distanciaHastaResultado = ((360 - anguloCentroResultado - faseActual) % 360 + 360) % 360;
+        let anguloFinalRueda = anguloInicioRueda + vueltasRueda * 360 + distanciaHastaResultado;
+        let anguloFinalPelota = vueltasBola * 360;
         let giroGuardado = {
             numero: ordenRuleta[resultado],
             apuestas: apuestasDelGiro,
@@ -1689,11 +1915,31 @@ function iniciarRuleta() {
         pistaPelota.style.setProperty("--ball-end-angle", anguloFinalPelota + "deg");
         pistaPelota.style.setProperty("--ball-duration", duracionGiroPelota + "ms");
         pistaPelota.style.transform = "rotate(" + anguloInicioPelota + "deg)";
+        anguloActualRueda = anguloInicioRueda;
+        aroRuleta.style.transition = "none";
+        aroRuleta.style.transform = "rotate(" + anguloInicioRueda + "deg)";
+        etiquetasRueda.forEach(function(etiqueta, indice) {
+            etiqueta.style.transition = "none";
+            etiqueta.style.transform = "rotate(" + angulosInicioEtiquetas[indice] + "deg)";
+        });
+        aroRuleta.classList.remove("is-idle");
+        void aroRuleta.offsetWidth;
+        aroRuleta.style.removeProperty("transition");
+        etiquetasRueda.forEach(function(etiqueta) {
+            etiqueta.style.removeProperty("transition");
+        });
+        aroRuleta.style.setProperty("--wheel-duration", duracionGiroPelota + "ms");
         void rueda.offsetWidth;
+        anguloActualRueda = anguloFinalRueda;
+        aroRuleta.style.transform = "rotate(" + anguloFinalRueda + "deg)";
+        etiquetasRueda.forEach(function(etiqueta, indice) {
+            etiqueta.style.transform = "rotate(" +
+                (angulosInicioEtiquetas[indice] - (anguloFinalRueda - anguloInicioRueda)) + "deg)";
+        });
         pistaPelota.classList.add("is-revealed", "is-spinning");
         reproducirSonidoGiro(duracionGiroPelota);
         mensaje.classList.remove("is-win", "is-loss");
-        mensaje.textContent = "La bola está girando. La ruleta sigue girando lentamente.";
+        mensaje.textContent = "La pelota está girando para revelar el resultado.";
         cuentaAtras.textContent = "Apuestas cerradas. La bola está girando...";
 
         window.setTimeout(function() {
@@ -1731,7 +1977,7 @@ document.querySelector(".register-form")?.addEventListener("submit", function(ev
         return normalizarIdentificador(cuenta.email) === email ||
             normalizarIdentificador(cuenta.username) === normalizarIdentificador(username);
     })) {
-        alert("Ese correo o usuario ya está registrado.");
+        mostrarAviso("Ese correo o usuario ya está registrado.", "error");
         return;
     }
 
@@ -1744,8 +1990,9 @@ document.querySelector(".register-form")?.addEventListener("submit", function(ev
         bonoInicioSesionOtorgado: false
     });
     guardarCuentas(cuentas);
-    alert("Cuenta creada. Ya puedes iniciar sesión.");
-    window.location.href = "login.html";
+    mostrarAviso("Cuenta creada. Ya puedes iniciar sesión.", "success", function() {
+        window.location.href = "login.html";
+    });
 });
 
 document.querySelectorAll(".password-toggle").forEach(function(boton) {
@@ -1774,40 +2021,43 @@ document.querySelector(".login-form")?.addEventListener("submit", function(event
     });
 
     if (!cuenta) {
-        alert("Usuario, correo o contraseña incorrectos. Revisa tus datos o regístrate.");
+        mostrarAviso("Usuario, correo o contraseña incorrectos. Revisa tus datos o regístrate.", "error");
         return;
     }
 
     let saldo = puntosCuenta(cuenta);
     let bonoAplicado = cuenta.bonoInicioSesionOtorgado !== true;
+    let bonoBienvenida = 3000;
     if (bonoAplicado) {
-        if (saldo > Number.MAX_SAFE_INTEGER - 3000) {
-            alert("No se pudo aplicar el bono de inicio de sesión porque el saldo superaría el límite permitido.");
+        if (saldo > Number.MAX_SAFE_INTEGER - bonoBienvenida) {
+            mostrarAviso("No se pudo aplicar el bono de bienvenida porque el saldo superaría el límite permitido.", "error");
             return;
         }
-        cuenta.puntos = saldo + 3000;
+        cuenta.puntos = saldo + bonoBienvenida;
         cuenta.bonoInicioSesionOtorgado = true;
         guardarCuentas(cuentas);
         saldo = cuenta.puntos;
     }
 
     sessionStorage.setItem("chichacookSession", cuenta.username);
-    alert(bonoAplicado
+    let mensajeInicioSesion = bonoAplicado
         ? "¡Bienvenido/a, " + cuenta.displayName +
-            "! Recibiste tu bono único de 3.000 puntos. Tu saldo es de " +
+            "! Recibiste tu bono único de bienvenida de " + bonoBienvenida.toLocaleString("es-CL") + " puntos. Tu saldo es de " +
             saldo.toLocaleString("es-CL") + " puntos."
         : "¡Bienvenido/a, " + cuenta.displayName + "! Tu saldo es de " +
-            saldo.toLocaleString("es-CL") + " puntos.");
+            saldo.toLocaleString("es-CL") + " puntos.";
     let continuarCompra = sessionStorage.getItem("chichacookContinueAfterLogin");
+    let destinoInicioSesion = "index.html";
     if (continuarCompra === "services-cart") {
         sessionStorage.removeItem("chichacookContinueAfterLogin");
-        window.location.href = "servicios.html?abrirCarrito=1";
+        destinoInicioSesion = "servicios.html?abrirCarrito=1";
     } else if (continuarCompra === "services-add-product") {
         sessionStorage.removeItem("chichacookContinueAfterLogin");
-        window.location.href = "servicios.html?abrirCarrito=1&agregarPendiente=1";
-    } else {
-        window.location.href = "index.html";
+        destinoInicioSesion = "servicios.html?abrirCarrito=1&agregarPendiente=1";
     }
+    mostrarAviso(mensajeInicioSesion, "success", function() {
+        window.location.href = destinoInicioSesion;
+    });
 });
 
 let recoveryDialog = document.getElementById("password-recovery-dialog");
@@ -1940,6 +2190,14 @@ document.getElementById("redeem-topping-reward")?.addEventListener("click", func
     });
     actualizarNavegacionSesion();
 });
+
+function toggleMenu() {
+    let boton = document.querySelector(".menu-toggle");
+    let navegacion = document.getElementById("main-nav");
+    let abierto = navegacion.classList.toggle("is-open");
+    boton.setAttribute("aria-expanded", abierto);
+    boton.setAttribute("aria-label", abierto ? "Cerrar menú" : "Abrir menú");
+}
 
 iniciarBlackjack();
 iniciarRuleta();
