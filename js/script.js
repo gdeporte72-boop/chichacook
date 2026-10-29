@@ -233,7 +233,36 @@ function mostrarCarrito() {
     let botonCarrito = document.querySelector("header button[aria-label='Mostrar carrito']");
     if (botonCarrito) botonCarrito.setAttribute("aria-expanded", abierto);
     renderizarCarrito();
+    if (abierto) posicionarCarrito();
 }
+
+function posicionarCarrito() {
+    let caja = document.getElementById("carrito");
+    let encabezado = document.querySelector("header");
+    let botonCarrito = document.querySelector("header button[aria-label='Mostrar carrito']");
+    if (!caja || !encabezado || !botonCarrito) return;
+
+    let rectanguloEncabezado = encabezado.getBoundingClientRect();
+    let rectanguloBoton = botonCarrito.getBoundingClientRect();
+    let posicionMaxima = Math.max(8, window.innerHeight - 200);
+    let arriba = Math.min(Math.max(8, rectanguloEncabezado.bottom + 8), posicionMaxima);
+    let anchoContenido = document.documentElement.clientWidth;
+    let anchoCarrito = Math.min(380, anchoContenido - 24);
+    let derecha = Math.min(
+        Math.max(12, anchoContenido - rectanguloBoton.right),
+        Math.max(12, anchoContenido - anchoCarrito - 12)
+    );
+    let alturaMaxima = Math.max(120, window.innerHeight - arriba - 12);
+
+    caja.style.setProperty("--cart-top", arriba + "px");
+    caja.style.setProperty("--cart-right", derecha + "px");
+    caja.style.setProperty("--cart-max-height", alturaMaxima + "px");
+}
+
+window.addEventListener("resize", function() {
+    let caja = document.getElementById("carrito");
+    if (caja && caja.classList.contains("mostrar")) posicionarCarrito();
+});
 
 function cerrarCarrito() {
     let caja = document.getElementById("carrito");
@@ -409,12 +438,24 @@ function comprar() {
     mostrarAviso(mensajeCompra, "success");
 }
 
+function crearCorreoContacto(formulario) {
+    let datos = new FormData(formulario);
+    let nombre = datos.get("nombre").trim();
+    let correo = datos.get("correo").trim();
+    let mensaje = datos.get("mensaje").trim();
+    let asunto = encodeURIComponent("Mensaje de contacto - " + nombre);
+    let cuerpo = encodeURIComponent(
+        "Nombre: " + nombre + "\n" +
+        "Correo: " + correo + "\n\n" +
+        mensaje
+    );
+
+    return "mailto:gdeporte72@gmail.com?subject=" + asunto + "&body=" + cuerpo;
+}
+
 function enviar(evento) {
     evento.preventDefault();
-
-    let nombre = document.getElementById("nombre").value;
-
-    mostrarAviso("Gracias " + nombre + ", recibimos tu mensaje.", "success");
+    window.location.href = crearCorreoContacto(evento.currentTarget);
 }
 
 function obtenerCuentas() {
@@ -2197,6 +2238,8 @@ function toggleMenu() {
     let abierto = navegacion.classList.toggle("is-open");
     boton.setAttribute("aria-expanded", abierto);
     boton.setAttribute("aria-label", abierto ? "Cerrar menú" : "Abrir menú");
+    let caja = document.getElementById("carrito");
+    if (caja && caja.classList.contains("mostrar")) posicionarCarrito();
 }
 
 iniciarBlackjack();

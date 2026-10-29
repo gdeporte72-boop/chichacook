@@ -37,80 +37,122 @@
     </div>
 </header>
 
-<section class="seccion">
-    <p class="amarillo">LO QUE OFRECEMOS</p>
-    <h1>Servicios</h1>
-
-    <div class="tarjetas">
-        <div class="tarjeta">
-            <h2>🥤</h2>
-            <h3>Chicha venezolana</h3>
-            <p>Una deliciosa chicha por $1.200.</p>
+<main class="services-page">
+    <section class="services-hero" aria-labelledby="services-title">
+        <div class="services-hero-copy">
+            <p class="services-eyebrow">CHICHA VENEZOLANA · A TU GUSTO</p>
+            <h1 id="services-title">Tu chicha,<br>tu momento.</h1>
+            <p>Cremosa, con una galleta de cortesía y dos toppings para combinar como quieras.</p>
+            <a class="services-hero-link" href="#arma-tu-chicha">Arma tu pedido <span aria-hidden="true">↓</span></a>
         </div>
-
-        <div class="tarjeta">
-            <h2>🍪</h2>
-            <h3>Galleta gratis</h3>
-            <p>Cada chicha incluye una galleta de cortesía.</p>
+        <div class="services-hero-art">
+            <img src="imagenes/ChichaCook.png" alt="Chicha venezolana con galletas ChichaCook">
+            <div class="services-hero-price">
+                <span>CHICHA + 2 TOPPINGS</span>
+                <strong>$1.200</strong>
+            </div>
         </div>
+    </section>
 
-        <div class="tarjeta">
-            <h2>🍫</h2>
-            <h3>Toppings</h3>
-            <p>2 toppings incluidos y uno extra por $200.</p>
+    <section class="services-inclusions" aria-labelledby="inclusions-title">
+        <div class="services-section-heading">
+            <div>
+                <p class="services-eyebrow services-eyebrow-dark">SABOR EN CADA DETALLE</p>
+                <h2 id="inclusions-title">Lo bueno viene incluido</h2>
+            </div>
+            <p>Una combinación rica, pensada para disfrutar desde el primer sorbo.</p>
         </div>
-    </div>
-
-    <h2><a href="servicios.html">Arma tu chicha</a></h2>
-
-    <div class="pedido">
-        <div class="tarjeta">
-            <h3>Chicha venezolana</h3>
-            <h2>$1.200</h2>
-
-            <label>Topping 1</label>
-            <select id="topping1">
-                <option>Ninguno</option>
-                <option>Oreo</option>
-                <option>M&M</option>
-                <option>Chispas de chocolate</option>
-            </select>
-
-            <label>Topping 2</label>
-            <select id="topping2">
-                <option>Ninguno</option>
-                <option>M&M</option>
-                <option>Oreo</option>
-                <option>Chispas de chocolate</option>
-            </select>
-
-            <label>Topping extra +$200</label>
-            <select id="extra">
-                <option>Ninguno</option>
-                <option>Oreo</option>
-                <option>M&M</option>
-                <option>Chispas de chocolate</option>
-            </select>
-
-            <button class="boton" onclick="agregar()">
-                Agregar al carrito
-            </button>
-
-            <p>🍪 Galleta de cortesía incluida</p>
+        <div class="services-perks">
+            <article class="services-perk">
+                <span class="services-perk-icon" aria-hidden="true">🥤</span>
+                <div>
+                    <h3>Chicha venezolana</h3>
+                    <p>Cremosa y preparada para disfrutar.</p>
+                </div>
+            </article>
+            <article class="services-perk">
+                <span class="services-perk-icon" aria-hidden="true">🍪</span>
+                <div>
+                    <h3>Galleta de cortesía</h3>
+                    <p>Una galleta incluida en cada chicha.</p>
+                </div>
+            </article>
+            <article class="services-perk">
+                <span class="services-perk-icon" aria-hidden="true">🍫</span>
+                <div>
+                    <h3>Dos toppings incluidos</h3>
+                    <p>Agrega un topping extra por $200.</p>
+                </div>
+            </article>
         </div>
+    </section>
 
-        <div class="tarjeta">
-            <h3>¿Cómo funciona?</h3>
-            <p>1. Elige tu chicha.</p>
-            <p>2. Escoge 2 toppings.</p>
-            <p>3. Puedes agregar otro por $200.</p>
-            <p>4. Revisa tu carrito.</p>
+    <section class="services-order" id="arma-tu-chicha" aria-labelledby="order-title">
+        <div class="services-section-heading">
+            <div>
+                <p class="services-eyebrow services-eyebrow-dark">A TU MANERA</p>
+                <h2 id="order-title">Elige tus toppings</h2>
+            </div>
+            <p>Personaliza tu vaso y agrégalo al carrito.</p>
         </div>
-    </div>
-</section>
+        <div class="services-order-layout">
+            <div class="services-configurator">
+                <div class="services-configurator-heading">
+                    <div>
+                        <p class="services-eyebrow services-eyebrow-dark">TU PEDIDO</p>
+                        <h3>Chicha venezolana</h3>
+                    </div>
+                    <strong class="services-configurator-price">$1.200</strong>
+                </div>
 
-<footer>
-    <p>ChichaCook - Sabor venezolano <span class="bandera-venezuela" role="img" aria-label="Bandera de Venezuela"></span></p>
+                <label for="topping1">Topping 1 <span>Incluido</span></label>
+                <select id="topping1">
+                    <option>Ninguno</option>
+                    <option>Oreo</option>
+                    <option>M&amp;M</option>
+                    <option>Chispas de chocolate</option>
+                </select>
+
+                <label for="topping2">Topping 2 <span>Incluido</span></label>
+                <select id="topping2">
+                    <option>Ninguno</option>
+                    <option>M&amp;M</option>
+                    <option>Oreo</option>
+                    <option>Chispas de chocolate</option>
+                </select>
+
+                <label for="extra">Topping extra <span>+$200</span></label>
+                <select id="extra">
+                    <option>Ninguno</option>
+                    <option>Oreo</option>
+                    <option>M&amp;M</option>
+                    <option>Chispas de chocolate</option>
+                </select>
+
+                <button class="boton services-add-button" type="button" onclick="agregar()">
+                    Agregar al carrito <span aria-hidden="true">+</span>
+                </button>
+                <p class="services-configurator-note">Galleta de cortesía incluida en cada pedido.</p>
+            </div>
+
+            <aside class="services-order-guide" aria-labelledby="order-guide-title">
+                <p class="services-eyebrow">FÁCIL Y RÁPIDO</p>
+                <h3 id="order-guide-title">¿Cómo funciona?</h3>
+                <ol>
+                    <li><span>01</span> Elige hasta dos toppings.</li>
+                    <li><span>02</span> Si quieres, suma uno extra por $200.</li>
+                    <li><span>03</span> Agrégala al carrito y revisa tu pedido.</li>
+                </ol>
+                <p class="services-login-note">Inicia sesión para agregar tu chicha al carrito.</p>
+            </aside>
+        </div>
+    </section>
+</main>
+
+<footer class="site-footer">
+    <a class="footer-brand" href="index.html">CHICHA<span>COOK</span></a>
+    <p>El sabor venezolano siempre encuentra su lugar <span class="bandera-venezuela" role="img" aria-label="Bandera de Venezuela"></span></p>
+    <small>© ChichaCook</small>
 </footer>
 
 <div id="carrito" class="carrito"></div>

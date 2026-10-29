@@ -37,39 +37,72 @@
     </div>
 </header>
 
-<section class="seccion">
-    <p class="amarillo">CONTÁCTANOS</p>
-    <h1>Contacto</h1>
+<main class="contact-page">
+    <section class="contact-hero" aria-labelledby="contact-page-title">
+        <p class="services-eyebrow">CONTACTO CHICHACOOK</p>
+        <h1 id="contact-page-title">Estamos para ayudarte.</h1>
+        <p>Cuéntanos qué necesitas o escríbenos directamente por tus canales favoritos.</p>
+    </section>
 
-    <div class="contacto">
-        <div class="tarjeta">
-            <h2>Escríbenos</h2>
+    <div class="contact-content">
+        <div class="contact-grid">
+            <section class="contact-form-panel" aria-labelledby="contact-form-title">
+                <p class="services-eyebrow services-eyebrow-dark">ENVÍANOS UN MENSAJE</p>
+                <h2 id="contact-form-title">¿En qué podemos ayudarte?</h2>
+                <form onsubmit="enviar(event)">
+                    <label for="nombre">Nombre</label>
+                    <input id="nombre" name="nombre" type="text" autocomplete="name" required>
 
-            <form onsubmit="enviar(event)">
-                <label>Nombre</label>
-                <input id="nombre" type="text" required>
+                    <label for="correo-contacto">Correo</label>
+                    <input id="correo-contacto" name="correo" type="email" autocomplete="email" required>
 
-                <label>Correo</label>
-                <input type="email" required>
+                    <label for="mensaje-contacto">Mensaje</label>
+                    <textarea id="mensaje-contacto" name="mensaje" rows="5" required></textarea>
 
-                <label>Mensaje</label>
-                <textarea required></textarea>
+                    <button class="boton contact-submit" type="submit">Enviar mensaje <span aria-hidden="true">→</span></button>
+                    <p class="contact-mail-note">Se abrirá tu aplicación de correo con el mensaje preparado. Revísalo y pulsa enviar.</p>
+                </form>
+            </section>
 
-                <button class="boton" type="submit">Enviar</button>
-            </form>
-        </div>
+            <aside class="contact-info-panel" aria-labelledby="contact-info-title">
+                <p class="services-eyebrow">RESPUESTA DIRECTA</p>
+                <h2 id="contact-info-title">Conecta con nosotros</h2>
+                <a class="contact-channel" href="https://wa.me/56952346726" target="_blank" rel="noopener noreferrer">
+                    <span>WhatsApp</span><strong>+56 9 5234 6726</strong><span aria-hidden="true">↗</span>
+                </a>
+                <div class="contact-channel contact-channel-static">
+                    <span>Instagram</span><strong>@chichacook</strong>
+                </div>
+                <div class="contact-channel contact-channel-static">
+                    <span>TikTok</span><strong>@chichacook</strong>
+                </div>
+                <div class="contact-channel contact-channel-static">
+                    <span>X</span><strong>@chichacook</strong>
+                </div>
+            </aside>
 
-        <div class="tarjeta">
-            <h2>Información</h2>
-            <p>📱 WhatsApp: +56 9 0000 0000</p>
-            <p>📸 Instagram: @chichacook</p>
-            <p>📍 Chile</p>
+            <section class="contact-map-panel" aria-labelledby="contact-map-title">
+                <div class="contact-map-copy">
+                    <p class="services-eyebrow services-eyebrow-dark">UBICACIÓN</p>
+                    <h2 id="contact-map-title">Estación Central</h2>
+                    <p class="contact-address">Av. Alameda Libertador Bernardo O'Higgins 3250</p>
+                    <p>Región Metropolitana, Chile</p>
+                    <a class="contact-map-link" href="https://www.google.com/maps/search/?api=1&amp;query=Av.%20Alameda%20Libertador%20Bernardo%20O%27Higgins%203250%2C%20Estaci%C3%B3n%20Central%2C%20Santiago%20de%20Chile" target="_blank" rel="noopener noreferrer">Ver en Google Maps <span aria-hidden="true">↗</span></a>
+                </div>
+                <iframe
+                    src="https://maps.google.com/maps?q=Av.%20Alameda%20Libertador%20Bernardo%20O%27Higgins%203250%2C%20Estaci%C3%B3n%20Central%2C%20Santiago%20de%20Chile&amp;z=16&amp;output=embed"
+                    title="Mapa de Av. Alameda Libertador Bernardo O'Higgins 3250, Estación Central"
+                    loading="lazy"
+                    referrerpolicy="no-referrer-when-downgrade"></iframe>
+            </section>
         </div>
     </div>
-</section>
+</main>
 
-<footer>
-    <p>ChichaCook - Sabor venezolano <span class="bandera-venezuela" role="img" aria-label="Bandera de Venezuela"></span></p>
+<footer class="site-footer">
+    <a class="footer-brand" href="index.html">CHICHA<span>COOK</span></a>
+    <p>El sabor venezolano siempre encuentra su lugar <span class="bandera-venezuela" role="img" aria-label="Bandera de Venezuela"></span></p>
+    <small>© ChichaCook</small>
 </footer>
 
 <div id="carrito" class="carrito"></div>
